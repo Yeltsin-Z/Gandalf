@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gandalf — Regression Test Runner</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/css/style.css?v=20" rel="stylesheet">
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────── -->
+<nav class="app-navbar">
+  <a class="app-navbar-brand" href="/">
+    <div class="brand-icon"><i class="bi bi-shield-shaded"></i></div>
+    Gandalf
+  </a>
+  <div class="app-navbar-divider"></div>
+  <span class="app-navbar-subtitle">Regression Test Runner</span>
+  <div class="app-navbar-meta">
+    <a href="https://github.com/DrivetrainAi/tesseract/actions/workflows/regression-v2-tests.yml"
+       target="_blank" class="repo-chip">
+      <i class="bi bi-github"></i>
+      DrivetrainAi/tesseract
+      <i class="bi bi-box-arrow-up-right" style="font-size:0.65rem"></i>
+    </a>
+    <a href="/logout" class="repo-chip" style="margin-left:0.5rem" title="Sign out">
+      <i class="bi bi-box-arrow-right"></i>Sign out
+    </a>
+  </div>
+</nav>
+
+<!-- ── Tabs ────────────────────────────────────────────────── -->
+<div class="app-tabs">
+  <button class="app-tab active" data-tab="trigger">
+    <i class="bi bi-play-circle"></i>Trigger
+  </button>
+  <button class="app-tab" data-tab="runs">
+    <i class="bi bi-list-check"></i>Runs
+  </button>
+  <button class="app-tab" data-tab="groups">
+    <i class="bi bi-collection"></i>Groups
+  </button>
+</div>
+
+<!-- ── Content ─────────────────────────────────────────────── -->
+<div class="app-content">
+
+  <!-- ==================== TRIGGER TAB ==================== -->
+  <div class="tab-panel active" id="tab-trigger">
+    <canvas id="lightningCanvas" aria-hidden="true"></canvas>
+    <div class="trigger-layout">
+
+      <!-- Centered compact frame -->
+      <div class="trigger-frame">
+        <div class="trigger-topbar">
+          <div class="trigger-title">
+            <div class="title-icon"><i class="bi bi-stars"></i></div>
+            <div>
+              <span class="title-text">Unleash the Spell</span>
+              <div class="trigger-subtitle">You shall not skip regression</div>
+            </div>
+          </div>
+        </div>
+
+        <form id="triggerForm" novalidate>
+          <div class="card trigger-card">
+
+            <!-- Use workflow from -->
+            <div class="workflow-ref-bar">
+              <i class="bi bi-git"></i>
+              <span>Use workflow from</span>
+              <div class="branch-picker-wrap" id="branch-picker-ref">
+                <input type="hidden" name="ref" id="inp-ref" value="main-v3">
+                <button type="button" class="workflow-ref-pill branch-picker-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <i class="bi bi-diagram-2"></i>
+                  <span class="branch-picker-label">main-v3</span>
+                  <i class="bi bi-chevron-down branch-caret"></i>
+                </button>
+                <div class="branch-dropdown" role="listbox" aria-label="Select branch">
+                  <div class="branch-search-wrap">
+                    <i class="bi bi-search branch-search-icon"></i>
+                    <input type="text" class="branch-search-input" placeholder="Find a branch…" autocomplete="off" spellcheck="false">
+                  </div>
+                  <div class="branch-list">
+                    <div class="branch-drop-loading"><i class="bi bi-arrow-repeat spin"></i>&nbsp;Loading…</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-sections">
+
+              <!-- Section: Run Identity -->
+              <div class="form-section">
+                <div class="section-label"><i class="bi bi-fingerprint"></i>Run Identity</div>
+                <div class="field-group cols-2">
+
+                  {% for inp in workflow_inputs if inp.name in ['runId', 'tenants'] %}
+                  <div class="field-item">
+                    <label class="field-label" for="inp-{{ inp.name }}">
+                      {{ inp.label }}
+                      {% if inp.required %}<span class="req">*</span>{% endif %}
+                    </label>
+                    <input
+                      type="{{ inp.type }}"
+                      id="inp-{{ inp.name }}"
+                      name="{{ inp.name }}"
+                      class="field-input"
+                      value="{{ inp.default }}"
+                      placeholder="{{ inp.label }}"
+                      {% if inp.required %}required{% endif %}
+                      {% if inp.pattern %}data-pattern="{{ inp.pattern }}" data-pattern-error="{{ inp.pattern_error }}"{% endif %}
+                    >
+                    {% if inp.hint %}<div class="field-hint"><i class="bi bi-info-circle"></i>{{ inp.hint }}</div>{% endif %}
+                    <div class="field-error"><i class="bi bi-exclamation-circle"></i><span></span></div>
+                  </div>
+                  {% endfor %}
+
+                </div>
+              </div>
+
+              <!-- Section: Branch Configuration -->
+              <div class="form-section">
+                <div class="section-label"><i class="bi bi-git"></i>Branch Configuration</div>
+                <div class="field-group cols-2">
+
+                  {% for inp in workflow_inputs if inp.name in ['mainBranch', 'featBranch'] %}
+                  <div class="field-item">
+                    <label class="field-label">
+                      {{ inp.label }}
+                      {% if inp.required %}<span class="req">*</span>{% endif %}
+                    </label>
+                    <div class="bc-field" data-field="{{ inp.name }}">
+                      <input type="hidden" name="{{ inp.name }}" id="inp-{{ inp.name }}" value="{{ inp.default }}"
+                             {% if inp.required %}data-required="true"{% endif %}>
+                      <div class="bc-wrap">
+                        <i class="bi bi-diagram-2 bc-icon"></i>
+                        <input type="text" class="field-input bc-input"
+                               value="{{ inp.default }}" placeholder="Search branch…"
+                               autocomplete="off" spellcheck="false">
+                      </div>
+                    </div>
+                    {% if inp.hint %}<div class="field-hint"><i class="bi bi-info-circle"></i>{{ inp.hint }}</div>{% endif %}
+                    <div class="field-error"><i class="bi bi-exclamation-circle"></i><span></span></div>
+                  </div>
+                  {% endfor %}
+
+                </div>
+              </div>
+
+              <!-- Section: Test Options -->
+              <div class="form-section">
+                <div class="section-label"><i class="bi bi-sliders"></i>Test Options</div>
+                <div class="field-group cols-3">
+
+                  {% for inp in workflow_inputs if inp.name in ['maxEcsTasks', 'compareModels', 'compareReports', 'filters'] %}
+                  <div class="field-item{% if inp.type == 'boolean' %} field-item--toggle{% endif %}">
+                    {% if inp.type == 'boolean' %}
+                    <div class="toggle-row">
+                      <div class="toggle-info">
+                        <span class="field-label mb-0">{{ inp.label }}</span>
+                        {% if inp.hint %}<div class="field-hint mt-0"><i class="bi bi-info-circle"></i>{{ inp.hint }}</div>{% endif %}
+                      </div>
+                      <label class="toggle-switch" for="inp-{{ inp.name }}">
+                        <input
+                          type="checkbox"
+                          id="inp-{{ inp.name }}"
+                          class="toggle-checkbox"
+                          data-boolean-field="{{ inp.name }}"
+                          {% if inp.default == 'true' %}checked{% endif %}
+                        >
+                        <span class="toggle-track">
+                          <span class="toggle-thumb"></span>
+                        </span>
+                      </label>
+                      <input type="hidden" id="inp-{{ inp.name }}-val" name="{{ inp.name }}" value="{{ inp.default }}">
+                    </div>
+                    {% else %}
+                    <label class="field-label" for="inp-{{ inp.name }}">
+                      {{ inp.label }}
+                      {% if inp.required %}<span class="req">*</span>{% endif %}
+                    </label>
+                    {% if inp.type == 'select' %}
+                    <select id="inp-{{ inp.name }}" name="{{ inp.name }}" class="field-select">
+                      {% for opt in inp.options %}
+                      <option value="{{ opt }}" {% if opt == inp.default %}selected{% endif %}>{{ opt }}</option>
+                      {% endfor %}
+                    </select>
+                    {% else %}
+                    <input
+                      type="{{ inp.type }}"
+                      id="inp-{{ inp.name }}"
+                      name="{{ inp.name }}"
+                      class="field-input"
+                      value="{{ inp.default }}"
+                      placeholder="{{ inp.label }}"
+                      {% if inp.required %}required{% endif %}
+                      {% if inp.min is defined %}min="{{ inp.min }}"{% endif %}
+                      {% if inp.max is defined %}max="{{ inp.max }}"{% endif %}
+                      {% if inp.pattern %}data-pattern="{{ inp.pattern }}" data-pattern-error="{{ inp.pattern_error }}"{% endif %}
+                    >
+                    {% endif %}
+                    {% if inp.hint %}<div class="field-hint"><i class="bi bi-info-circle"></i>{{ inp.hint }}</div>{% endif %}
+                    <div class="field-error"><i class="bi bi-exclamation-circle"></i><span></span></div>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+
+                  <script>
+                  document.querySelectorAll('.toggle-checkbox').forEach(cb => {
+                    const name = cb.dataset.booleanField;
+                    const hidden = document.getElementById('inp-' + name + '-val');
+                    cb.addEventListener('change', () => { hidden.value = cb.checked ? 'true' : 'false'; });
+                  });
+                  </script>
+
+                </div>
+              </div>
+
+              <!-- Section: LaunchDarkly Flags -->
+              <div class="form-section">
+                <div class="section-label">
+                  <i class="bi bi-toggles"></i>LaunchDarkly Flags
+                  <span class="section-label-optional">optional</span>
+                </div>
+                <div class="field-group cols-2">
+
+                  <div class="field-item">
+                    <label class="field-label">Main Branch</label>
+                    <div class="ld-picker" id="ld-picker-main" data-target="inp-ldFlagsMainBranch">
+                      <div class="ld-search-row">
+                        <div class="ld-search-wrap">
+                          <i class="bi bi-search ld-search-icon"></i>
+                          <input type="text" class="field-input ld-search-input" placeholder="Search flags…" autocomplete="off">
+                          <div class="ld-dropdown"></div>
+                        </div>
+                      </div>
+                      <div class="ld-chips"></div>
+                    </div>
+                    <input type="hidden" id="inp-ldFlagsMainBranch" name="ldFlagsMainBranch" value="">
+                    <div class="field-hint"><i class="bi bi-info-circle"></i>Search and toggle flags for the main branch</div>
+                  </div>
+
+                  <div class="field-item">
+                    <label class="field-label">Feature Branch</label>
+                    <div class="ld-picker" id="ld-picker-feat" data-target="inp-ldFlagsFeatBranch">
+                      <div class="ld-search-row">
+                        <div class="ld-search-wrap">
+                          <i class="bi bi-search ld-search-icon"></i>
+                          <input type="text" class="field-input ld-search-input" placeholder="Search flags…" autocomplete="off">
+                          <div class="ld-dropdown"></div>
+                        </div>
+                      </div>
+                      <div class="ld-chips"></div>
+                    </div>
+                    <input type="hidden" id="inp-ldFlagsFeatBranch" name="ldFlagsFeatBranch" value="">
+                    <div class="field-hint"><i class="bi bi-info-circle"></i>Search and toggle flags for the feature branch</div>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </div><!-- /trigger-card -->
+        </form>
+
+        <!-- Bottom-center action bar -->
+        <div class="trigger-bottom-bar">
+          <div id="triggerStatus" style="font-size:0.82rem"></div>
+          <button type="submit" form="triggerForm" class="btn btn-primary btn-lg" id="triggerBtn">
+            <i class="bi bi-play-fill"></i>Trigger Run
+          </button>
+        </div>
+
+      </div><!-- trigger-frame -->
+
+    </div>
+  </div>
+
+  <!-- ==================== RUNS TAB ==================== -->
+  <div class="tab-panel" id="tab-runs">
+
+    <!-- Unified toolbar -->
+    <div class="runs-header">
+      <div class="runs-header-top">
+        <div class="runs-title">
+          <i class="bi bi-list-check"></i>Workflow Runs
+        </div>
+        <div class="runs-header-actions">
+          <span class="auto-refresh-indicator" id="autoRefreshIndicator" style="display:none"></span>
+          <button class="btn btn-outline btn-sm" id="assignSelectedBtn" disabled onclick="openAssignModal()">
+            <i class="bi bi-folder-plus"></i>Assign to Group
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="loadRuns()">
+            <i class="bi bi-arrow-clockwise"></i>Refresh
+          </button>
+        </div>
+      </div>
+      <div class="runs-filter-row" id="runsInsightBar" style="display:none">
+        <div class="rf-group">
+          <i class="bi bi-funnel rf-icon"></i>
+          <select class="rf-select" id="rfStatus" onchange="applyRunFilters()">
+            <option value="">All Statuses</option>
+            <option value="in_progress">Running</option>
+            <option value="success">Passed</option>
+            <option value="failure">Failed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="rf-group">
+          <i class="bi bi-diagram-2 rf-icon"></i>
+          <select class="rf-select" id="rfBranch" onchange="applyRunFilters()">
+            <option value="">All Branches</option>
+          </select>
+        </div>
+        <div class="rf-group">
+          <i class="bi bi-person rf-icon"></i>
+          <select class="rf-select" id="rfActor" onchange="applyRunFilters()">
+            <option value="">All Actors</option>
+          </select>
+        </div>
+        <button class="rf-clear" id="rfClear" onclick="clearRunFilters()" style="display:none">
+          <i class="bi bi-x"></i>Clear
+        </button>
+        <span class="rf-count" id="rfCount"></span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="runsTable">
+        <colgroup>
+          <col style="width:44px">    <!-- checkbox -->
+          <col>                        <!-- run name (flex) -->
+          <col style="width:115px">   <!-- status -->
+          <col style="width:140px">   <!-- branch -->
+          <col style="width:105px">   <!-- actor -->
+          <col style="width:210px">   <!-- tenants -->
+          <col style="width:120px">   <!-- created -->
+          <col style="width:100px">   <!-- duration -->
+          <col style="width:180px">    <!-- groups -->
+          <col style="width:108px">   <!-- action -->
+        </colgroup>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="selectAllRuns"></th>
+            <th>Run Name</th>
+            <th>Status</th>
+            <th>Branch</th>
+            <th>Actor</th>
+            <th>Tenants</th>
+            <th>Created</th>
+            <th>Duration</th>
+            <th>Groups</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="runsBody">
+          <tr><td colspan="10" class="text-center text-muted" style="padding:3rem">
+            Click <strong>Refresh</strong> to load runs
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-pagination">
+      <span id="runsInfo" class="runs-page-info"></span>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline btn-sm" id="prevPage" disabled onclick="changePage(-1)">
+          <i class="bi bi-chevron-left"></i>Prev
+        </button>
+        <button class="btn btn-outline btn-sm" id="nextPage" disabled onclick="changePage(1)">
+          Next<i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== GROUPS TAB ==================== -->
+  <div class="tab-panel" id="tab-groups">
+    <div class="groups-layout">
+
+      <!-- Left panel -->
+      <div>
+        <div class="card mb-3">
+          <div class="card-header"><i class="bi bi-plus-circle" style="color:var(--accent)"></i>Create Group</div>
+          <div class="card-body">
+            <form id="createGroupForm">
+              <div class="field-item mb-3">
+                <label class="field-label">Group Name</label>
+                <input type="text" class="field-input" id="newGroupName" required placeholder="e.g. Sprint 42 Regression">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-plus"></i>Create Group
+              </button>
+            </form>
+            <div id="createGroupStatus" class="mt-1" style="font-size:0.78rem"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><i class="bi bi-plus-square" style="color:var(--accent)"></i>Add Run to Group</div>
+          <div class="card-body">
+            <!-- Mode tabs -->
+            <div class="ar-tabs">
+              <button class="ar-tab active" data-mode="id" onclick="switchAddRunMode('id', this)">
+                <i class="bi bi-hash"></i>By Run ID
+              </button>
+              <button class="ar-tab" data-mode="name" onclick="switchAddRunMode('name', this)">
+                <i class="bi bi-fonts"></i>By Run Name
+              </button>
+            </div>
+
+            <form id="addRunForm">
+              <div class="field-item mb-2">
+                <label class="field-label">Group</label>
+                <select class="field-select" id="addRunGroupSelect" required>
+                  <option value="">— Select group —</option>
+                </select>
+              </div>
+
+              <!-- By ID panel -->
+              <div id="ar-panel-id">
+                <div class="field-item mb-3">
+                  <label class="field-label">GitHub Run ID</label>
+                  <input type="number" class="field-input" id="addRunId" placeholder="e.g. 12345678">
+                </div>
+              </div>
+
+              <!-- By Name panel -->
+              <div id="ar-panel-name" style="display:none">
+                <div class="field-item mb-3">
+                  <label class="field-label">Run Name</label>
+                  <div class="ar-name-wrap">
+                    <input type="text" class="field-input" id="addRunNameInput"
+                      placeholder="Search by run name…" autocomplete="off">
+                    <div class="ar-dropdown" id="arDropdown" style="display:none"></div>
+                  </div>
+                  <input type="hidden" id="addRunNameId">
+                  <div class="field-hint" id="arSelectedHint" style="display:none">
+                    <i class="bi bi-check-circle" style="color:var(--success)"></i>
+                    <span id="arSelectedText"></span>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-plus"></i>Add Run
+              </button>
+            </form>
+            <div id="addRunStatus" class="mt-1" style="font-size:0.78rem"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
+          <div class="runs-title"><i class="bi bi-collection" style="color:var(--accent)"></i>Groups</div>
+          <button class="btn btn-outline btn-sm" onclick="loadGroups()">
+            <i class="bi bi-arrow-clockwise"></i>Refresh
+          </button>
+        </div>
+        <div id="groupsList"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== ASSIGN MODAL ==================== -->
+<div class="modal-backdrop" id="assignModal">
+  <div class="modal-box">
+    <div class="modal-box-header">
+      <span><i class="bi bi-folder-plus me-2"></i>Assign Runs to Group</span>
+      <button class="modal-close-btn" onclick="closeAssignModal()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-box-body">
+      <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem">
+        Selected runs: <strong id="assignRunCount" style="color:var(--text-primary)"></strong>
+      </p>
+      <div class="field-item mb-3">
+        <label class="field-label">Select existing group</label>
+        <select class="field-select" id="assignGroupSelect">
+          <option value="">— Choose a group —</option>
+        </select>
+      </div>
+      <div style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin:0.75rem 0">or create new</div>
+      <div class="field-item">
+        <label class="field-label">New group name</label>
+        <div style="display:flex;gap:0.5rem">
+          <input type="text" class="field-input" id="assignNewGroupName" placeholder="Group name">
+          <button class="btn btn-outline btn-sm" id="assignCreateGroupBtn" style="white-space:nowrap">Create</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-box-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="assignConfirmBtn">Assign</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+<div id="tipBox"></div>
+
+<!-- Custom confirm modal — must be in DOM before the script block -->
+<div id="confirmModal" class="cm-overlay" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+  <div class="cm-card">
+    <div class="cm-icon-wrap" id="cmIconWrap">
+      <i class="bi bi-exclamation-triangle-fill" id="cmIcon"></i>
+    </div>
+    <p class="cm-title" id="cmTitle"></p>
+    <p class="cm-body" id="cmBody"></p>
+    <div class="cm-actions">
+      <button class="btn cm-cancel" id="cmCancel">Cancel</button>
+      <button class="btn cm-confirm" id="cmConfirm"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── LD Flag Picker ────────────────────────────────────────────
+class LDFlagPicker {
+  constructor(el) {
+    this.el        = el;
+    this.targetId  = el.dataset.target;
+    this.searchEl  = el.querySelector('.ld-search-input');
+    this.dropdown  = el.querySelector('.ld-dropdown');
+    this.chipsEl   = el.querySelector('.ld-chips');
+    this.selected  = {};   // key → { name, value, variations, kind }
+    this.debounce  = null;
+
+    this.searchEl.addEventListener('input', () => {
+      clearTimeout(this.debounce);
+      const q = this.searchEl.value.trim();
+      if (!q) { this.hideDropdown(); return; }
+      this.debounce = setTimeout(() => this.search(q), 280);
+    });
+
+    this.searchEl.addEventListener('focus', () => {
+      if (this.searchEl.value.trim()) this.search(this.searchEl.value.trim());
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!this.el.contains(e.target)) this.hideDropdown();
+    });
+  }
+
+  async search(q) {
+    this.dropdown.innerHTML = '<div class="ld-drop-loading"><span class="spinner" style="width:.7rem;height:.7rem;border-width:2px"></span> Searching…</div>';
+    this.showDropdown();
+    try {
+      const resp = await fetch(`/api/ld/flags?q=${encodeURIComponent(q)}&limit=20`);
+      const data = await resp.json();
+      if (!resp.ok) {
+        this.dropdown.innerHTML = `<div class="ld-drop-error"><i class="bi bi-x-circle me-1"></i>${data.error}</div>`;
+        return;
+      }
+      this.renderDropdown(data.flags);
+    } catch (err) {
+      this.dropdown.innerHTML = `<div class="ld-drop-error">${err.message}</div>`;
+    }
+  }
+
+  renderDropdown(flags) {
+    if (!flags.length) {
+      this.dropdown.innerHTML = '<div class="ld-drop-empty">No flags found</div>';
+      return;
+    }
+    this.dropdown.innerHTML = flags.map(f => {
+      const alreadyAdded = !!this.selected[f.key];
+      return `
+        <div class="ld-drop-item ${alreadyAdded ? 'ld-drop-item-added' : ''}" data-key="${esc(f.key)}" data-name="${esc(f.name)}"
+             data-kind="${esc(f.kind)}" data-variations='${JSON.stringify(f.variations).replace(/'/g, "&#39;")}'>
+          <div class="ld-drop-info">
+            <span class="ld-drop-name">${esc(f.name)}</span>
+            <span class="ld-drop-key">${esc(f.key)}</span>
+            ${f.description ? `<span class="ld-drop-desc">${esc(f.description)}</span>` : ''}
+          </div>
+          <div class="ld-drop-right">
+            ${f.tags.map(t => `<span class="ld-tag">${esc(t)}</span>`).join('')}
+            ${alreadyAdded
+              ? '<span class="ld-added-badge"><i class="bi bi-check-circle-fill"></i>Added</span>'
+              : '<button type="button" class="btn btn-primary btn-xs">Add</button>'}
+          </div>
+        </div>`;
+    }).join('');
+
+    this.dropdown.querySelectorAll('.ld-drop-item:not(.ld-drop-item-added) .btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.ld-drop-item');
+        const variations = JSON.parse(item.dataset.variations || '[]');
+        this.addFlag({
+          key:        item.dataset.key,
+          name:       item.dataset.name,
+          kind:       item.dataset.kind,
+          variations: variations,
+          value:      this.defaultValue(item.dataset.kind, variations),
+        });
+        this.hideDropdown();
+        this.searchEl.value = '';
+      });
+    });
+  }
+
+  defaultValue(kind, variations) {
+    if (kind === 'boolean') return 'true';
+    if (variations.length > 0) return variations[0].value;
+    return 'true';
+  }
+
+  addFlag(flag) {
+    if (this.selected[flag.key]) return;
+    this.selected[flag.key] = flag;
+    this.renderChips();
+    this.syncHidden();
+  }
+
+  removeFlag(key) {
+    delete this.selected[key];
+    this.renderChips();
+    this.syncHidden();
+  }
+
+  setFlagValue(key, value) {
+    if (this.selected[key]) {
+      this.selected[key].value = value;
+      this.syncHidden();
+    }
+  }
+
+  renderChips() {
+    if (!Object.keys(this.selected).length) {
+      this.chipsEl.innerHTML = '';
+      return;
+    }
+    this.chipsEl.innerHTML = Object.values(this.selected).map(f => {
+      const isBool = f.kind === 'boolean';
+      const isOn   = f.value === 'true';
+
+      if (isBool) {
+        return `
+          <div class="ld-chip" data-key="${esc(f.key)}">
+            <span class="ld-chip-name" title="${esc(f.key)}">${esc(f.name)}</span>
+            <button type="button" class="ld-toggle ${isOn ? 'ld-toggle-on' : 'ld-toggle-off'}" data-key="${esc(f.key)}" title="${isOn ? 'On — click to turn off' : 'Off — click to turn on'}">
+              <span class="ld-toggle-knob"></span>
+            </button>
+            <span class="ld-chip-val">${isOn ? 'true' : 'false'}</span>
+            <button type="button" class="ld-chip-remove" data-key="${esc(f.key)}" title="Remove"><i class="bi bi-x-lg"></i></button>
+          </div>`;
+      } else {
+        const opts = f.variations.map(v =>
+          `<option value="${esc(v.value)}" ${v.value === f.value ? 'selected' : ''}>${esc(v.name || v.value)}</option>`
+        ).join('');
+        return `
+          <div class="ld-chip" data-key="${esc(f.key)}">
+            <span class="ld-chip-name" title="${esc(f.key)}">${esc(f.name)}</span>
+            <select class="ld-chip-select" data-key="${esc(f.key)}">${opts}</select>
+            <button type="button" class="ld-chip-remove" data-key="${esc(f.key)}" title="Remove"><i class="bi bi-x-lg"></i></button>
+          </div>`;
+      }
+    }).join('');
+
+    this.chipsEl.querySelectorAll('.ld-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        const cur = this.selected[key]?.value === 'true';
+        this.selected[key].value = cur ? 'false' : 'true';
+        this.renderChips();
+        this.syncHidden();
+      });
+    });
+
+    this.chipsEl.querySelectorAll('.ld-chip-remove').forEach(btn => {
+      btn.addEventListener('click', () => this.removeFlag(btn.dataset.key));
+    });
+
+    this.chipsEl.querySelectorAll('.ld-chip-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        this.setFlagValue(sel.dataset.key, sel.value);
+      });
+    });
+  }
+
+  syncHidden() {
+    const val = Object.entries(this.selected)
+      .map(([k, f]) => `${k}=${f.value}`)
+      .join(',');
+    document.getElementById(this.targetId).value = val;
+  }
+
+  showDropdown() { this.dropdown.classList.add('open'); }
+  hideDropdown() { this.dropdown.classList.remove('open'); }
+}
+
+// Initialise both pickers
+document.querySelectorAll('.ld-picker').forEach(el => new LDFlagPicker(el));
+
+// ── Branch Picker ─────────────────────────────────────────────
+// ── BranchPicker — shared branch list cache ────────────────────
+const BranchPickerCache = { branches: null, promise: null };
+
+async function _loadBranches() {
+  if (BranchPickerCache.branches) return BranchPickerCache.branches;
+  if (!BranchPickerCache.promise) {
+    BranchPickerCache.promise = fetch('/api/branches')
+      .then(r => r.json())
+      .then(d => { BranchPickerCache.branches = d.branches || []; return BranchPickerCache.branches; })
+      .catch(() => { BranchPickerCache.branches = []; return []; });
+  }
+  return BranchPickerCache.promise;
+}
+
+function _escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/**
+ * BranchPicker (pill mode) — "Use workflow from" bar at the top.
+ * Expects inside .branch-picker-wrap:
+ *   input[type=hidden]         — stores value
+ *   .branch-picker-trigger     — clickable pill button
+ *   .branch-picker-label       — span showing selected name
+ *   .branch-dropdown           — dropdown panel
+ *   .branch-search-input       — search input inside dropdown
+ *   .branch-list               — list container inside dropdown
+ */
+class BranchPicker {
+  constructor(wrap) {
+    this.wrap     = wrap;
+    this.hidden   = wrap.querySelector('input[type=hidden]');
+    this.trigger  = wrap.querySelector('.branch-picker-trigger');
+    this.label    = wrap.querySelector('.branch-picker-label');
+    this.dropEl   = wrap.querySelector('.branch-dropdown');
+    this.searchEl = wrap.querySelector('.branch-search-input');
+    this.listEl   = wrap.querySelector('.branch-list');
+    this.highlighted = -1;
+    this._all     = [];
+
+    this.trigger.addEventListener('click', e => { e.stopPropagation(); this.toggle(); });
+    document.addEventListener('click', e => { if (!this.wrap.contains(e.target)) this.close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && this.isOpen()) this.close(); });
+    this.searchEl.addEventListener('input', () => {
+      const q = this.searchEl.value;
+      this._render(q ? this._all.filter(b => b.toLowerCase().includes(q.toLowerCase())) : this._all, q);
+    });
+    this.searchEl.addEventListener('keydown', e => this._onKey(e));
+
+    _loadBranches().then(b => { this._all = b; });
+  }
+
+  isOpen() { return this.dropEl.classList.contains('open'); }
+  toggle()  { this.isOpen() ? this.close() : this.open(); }
+
+  open() {
+    document.querySelectorAll('.branch-picker-wrap').forEach(w => {
+      if (w !== this.wrap && w._picker) w._picker.close();
+    });
+    this.dropEl.classList.add('open');
+    this.trigger.setAttribute('aria-expanded', 'true');
+    this.searchEl.value = '';
+    if (this._all.length) {
+      this._render(this._all, '');
+      this._scrollToSelected();
+    } else {
+      this.listEl.innerHTML = '<div class="branch-drop-loading"><i class="bi bi-arrow-repeat spin"></i>&nbsp;Loading\u2026</div>';
+      _loadBranches().then(b => { this._all = b; this._render(b, ''); this._scrollToSelected(); });
+    }
+    this.searchEl.focus();
+  }
+
+  close() {
+    this.dropEl.classList.remove('open');
+    this.trigger.setAttribute('aria-expanded', 'false');
+    this.highlighted = -1;
+  }
+
+  select(name) {
+    this.hidden.value = name;
+    this.label.textContent = name;
+    this.hidden.dispatchEvent(new Event('change', { bubbles: true }));
+    this.close();
+  }
+
+  _render(branches, q) {
+    this.highlighted = -1;
+    if (!branches.length) {
+      this.listEl.innerHTML = '<div class="branch-drop-empty">No matches</div>';
+      return;
+    }
+    const cur = this.hidden.value;
+    this.listEl.innerHTML = branches.map(b => {
+      const sel = b === cur;
+      return `<div class="branch-drop-item${sel ? ' selected' : ''}" data-name="${_escHtml(b)}" role="option">
+        <i class="bi bi-diagram-2"></i>
+        <span class="branch-drop-item-name">${this._hl(b, q)}</span>
+        ${sel ? '<i class="bi bi-check2 branch-drop-check"></i>' : ''}
+      </div>`;
+    }).join('');
+    this.listEl.querySelectorAll('.branch-drop-item').forEach(item => {
+      item.addEventListener('click', () => this.select(item.dataset.name));
+    });
+  }
+
+  _hl(name, q) {
+    if (!q) return _escHtml(name);
+    const idx = name.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return _escHtml(name);
+    return _escHtml(name.slice(0, idx))
+      + '<mark>' + _escHtml(name.slice(idx, idx + q.length)) + '</mark>'
+      + _escHtml(name.slice(idx + q.length));
+  }
+
+  _scrollToSelected() {
+    requestAnimationFrame(() => {
+      const sel = this.listEl.querySelector('.selected');
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  _onKey(e) {
+    const items = Array.from(this.listEl.querySelectorAll('.branch-drop-item'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.highlighted = Math.min(this.highlighted + 1, items.length - 1);
+      this._updateHL(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.highlighted = Math.max(this.highlighted - 1, 0);
+      this._updateHL(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (this.highlighted >= 0 && items[this.highlighted]) {
+        this.select(items[this.highlighted].dataset.name);
+      } else if (items.length === 1) {
+        this.select(items[0].dataset.name);
+      }
+    }
+  }
+
+  _updateHL(items) {
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === this.highlighted));
+    if (this.highlighted >= 0 && items[this.highlighted])
+      items[this.highlighted].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+// Init pill pickers (workflow-ref bar only)
+document.querySelectorAll('.branch-picker-wrap').forEach(wrap => {
+  wrap._picker = new BranchPicker(wrap);
+});
+
+/**
+ * BranchConfig — autocomplete for Main Branch / Feature Branch fields.
+ * Dropdown is appended to <body> with position:fixed, completely outside
+ * any card stacking context, backdrop-filter, or overflow clipping.
+ */
+class BranchConfig {
+  constructor(fieldEl) {
+    this.fieldEl  = fieldEl;
+    this.hidden   = fieldEl.querySelector('input[type=hidden]');
+    this.textEl   = fieldEl.querySelector('.bc-input');
+    this._prevVal = this.hidden ? this.hidden.value : '';
+    this._all     = [];
+    this._hlIdx   = -1;
+
+    // Dropdown lives on <body> — zero stacking-context concerns
+    this.drop = document.createElement('div');
+    this.drop.className = 'bc-dropdown';
+    document.body.appendChild(this.drop);
+
+    this._bind();
+    _loadBranches().then(b => { this._all = b; });
+  }
+
+  _bind() {
+    this.textEl.addEventListener('focus', () => {
+      this._pos();
+      if (this._all.length) {
+        this._render(this._all, '');
+        this.drop.classList.add('open');
+        this._scrollSel();
+      } else {
+        this.drop.innerHTML = '<div class="bc-loading"><i class="bi bi-arrow-repeat spin"></i> Loading\u2026</div>';
+        this.drop.classList.add('open');
+        _loadBranches().then(b => { this._all = b; this._render(b, ''); this._scrollSel(); });
+      }
+    });
+
+    this.textEl.addEventListener('input', () => {
+      this._pos();
+      const q = this.textEl.value;
+      this._render(q ? this._all.filter(b => b.toLowerCase().includes(q.toLowerCase())) : this._all, q);
+      this.drop.classList.add('open');
+    });
+
+    this.textEl.addEventListener('keydown', e => this._onKey(e));
+
+    // mousedown (fires before blur) — close only when clicking outside
+    document.addEventListener('mousedown', e => {
+      if (!this.fieldEl.contains(e.target) && !this.drop.contains(e.target)) {
+        this.textEl.value = this._prevVal;
+        this._close();
+      }
+    });
+
+    // Keep dropdown aligned during scroll / resize
+    window.addEventListener('scroll', () => { if (this._isOpen()) this._pos(); }, true);
+    window.addEventListener('resize', () => { if (this._isOpen()) this._pos(); });
+  }
+
+  _pos() {
+    const r = this.textEl.getBoundingClientRect();
+    this.drop.style.top   = (r.bottom + 4) + 'px';
+    this.drop.style.left  = r.left + 'px';
+    this.drop.style.width = r.width + 'px';
+  }
+
+  _isOpen() { return this.drop.classList.contains('open'); }
+
+  _close() {
+    this.drop.classList.remove('open');
+    this._hlIdx = -1;
+  }
+
+  select(name) {
+    if (this.hidden) {
+      this.hidden.value = name;
+      this.hidden.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    this.textEl.value = name;
+    this._prevVal = name;
+    this._close();
+  }
+
+  _render(branches, q) {
+    this._hlIdx = -1;
+    if (!branches.length) {
+      this.drop.innerHTML = '<div class="bc-empty">No matches</div>';
+      return;
+    }
+    const cur = this.hidden ? this.hidden.value : '';
+    this.drop.innerHTML = branches.map(b => {
+      const sel = b === cur;
+      return `<div class="bc-item${sel ? ' bc-sel' : ''}" data-name="${_escHtml(b)}">
+        <i class="bi bi-diagram-2"></i>
+        <span>${this._hl(b, q)}</span>
+        ${sel ? '<i class="bi bi-check2 bc-check"></i>' : ''}
+      </div>`;
+    }).join('');
+    this.drop.querySelectorAll('.bc-item').forEach(item => {
+      item.addEventListener('mousedown', e => { e.preventDefault(); this.select(item.dataset.name); });
+    });
+  }
+
+  _hl(name, q) {
+    if (!q) return _escHtml(name);
+    const idx = name.toLowerCase().indexOf(q.toLowerCase());
+    if (idx === -1) return _escHtml(name);
+    return _escHtml(name.slice(0, idx))
+      + '<mark>' + _escHtml(name.slice(idx, idx + q.length)) + '</mark>'
+      + _escHtml(name.slice(idx + q.length));
+  }
+
+  _scrollSel() {
+    requestAnimationFrame(() => {
+      const sel = this.drop.querySelector('.bc-sel');
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  _onKey(e) {
+    const items = Array.from(this.drop.querySelectorAll('.bc-item'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this._hlIdx = Math.min(this._hlIdx + 1, items.length - 1);
+      this._updateHL(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._hlIdx = Math.max(this._hlIdx - 1, 0);
+      this._updateHL(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (this._hlIdx >= 0 && items[this._hlIdx]) {
+        this.select(items[this._hlIdx].dataset.name);
+      } else if (items.length === 1) {
+        this.select(items[0].dataset.name);
+      }
+    } else if (e.key === 'Escape') {
+      this.textEl.value = this._prevVal;
+      this._close();
+      this.textEl.blur();
+    }
+  }
+
+  _updateHL(items) {
+    items.forEach((el, i) => el.classList.toggle('bc-hl', i === this._hlIdx));
+    if (this._hlIdx >= 0 && items[this._hlIdx])
+      items[this._hlIdx].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+// Init branch config fields
+document.querySelectorAll('.bc-field').forEach(el => {
+  el._bcPicker = new BranchConfig(el);
+});
+
+// ── Tab switching ─────────────────────────────────────────────
+function activateTab(tabName, pushHash = true) {
+  const tab = document.querySelector(`.app-tab[data-tab="${tabName}"]`);
+  if (!tab) return;
+  document.querySelectorAll('.app-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  tab.classList.add('active');
+  const panel = document.getElementById('tab-' + tabName);
+  if (panel) {
+    panel.style.animation = 'none';
+    panel.offsetHeight; // reflow
+    panel.style.animation = '';
+    panel.classList.add('active');
+  }
+  if (pushHash) history.replaceState(null, '', '#' + tabName);
+  if (tabName === 'runs')   loadRuns();
+  else stopAutoRefresh();
+  if (tabName === 'groups') loadGroups();
+}
+
+document.querySelectorAll('.app-tab').forEach(tab => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+});
+
+// ── State ─────────────────────────────────────────────────────
+let currentPage = 1;
+let totalCount = 0;
+const perPage = 20;
+let allGroups = [];
+
+// ── Field validation ──────────────────────────────────────────
+function validateField(input) {
+  const pattern = input.dataset.pattern;
+  const patternError = input.dataset.patternError;
+  const errEl = input.closest('.field-item')?.querySelector('.field-error');
+  let valid = true;
+  let msg = '';
+
+  if (input.required && !input.value.trim()) {
+    valid = false;
+    msg = 'This field is required';
+  } else if (pattern && input.value.trim()) {
+    if (!new RegExp(pattern).test(input.value.trim())) {
+      valid = false;
+      msg = patternError || 'Invalid value';
+    }
+  }
+
+  input.classList.toggle('is-invalid', !valid);
+  input.classList.toggle('is-valid', valid);
+  if (errEl) {
+    errEl.querySelector('span').textContent = msg;
+    errEl.classList.toggle('visible', !valid);
+  }
+  return valid;
+}
+
+document.getElementById('triggerForm').querySelectorAll('.field-input').forEach(input => {
+  input.addEventListener('blur', () => validateField(input));
+  input.addEventListener('input', () => { if (input.classList.contains('is-invalid')) validateField(input); });
+});
+
+// Clamp number inputs with min/max on every keystroke — prevents 0, negatives, and >20
+document.getElementById('triggerForm').querySelectorAll('input[type="number"][min][max]').forEach(input => {
+  const min = parseInt(input.min, 10);
+  const max = parseInt(input.max, 10);
+
+  function clamp() {
+    const raw = input.value.trim();
+    if (raw === '' || raw === '-') return; // let the user clear/type freely mid-entry
+    let n = parseInt(raw, 10);
+    if (isNaN(n)) { input.value = min; return; }
+    if (n < min) n = min;
+    if (n > max) n = max;
+    if (String(n) !== raw) input.value = n;
+  }
+
+  input.addEventListener('input',  clamp);
+  input.addEventListener('change', clamp);  // covers spinner arrows
+  input.addEventListener('blur',   clamp);  // final cleanup on tab-away
+  // Block non-numeric keys (allow control keys)
+  input.addEventListener('keydown', e => {
+    const allowed = ['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+    if (allowed.includes(e.key)) return;
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  });
+});
+
+// ── Trigger submit ────────────────────────────────────────────
+document.getElementById('triggerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('triggerBtn');
+  const statusEl = document.getElementById('triggerStatus');
+
+  const inputs = Array.from(e.target.querySelectorAll('.field-input[required], .field-input[data-pattern]'));
+  const allValid = inputs.map(validateField).every(Boolean);
+  if (!allValid) {
+    statusEl.innerHTML = '<span style="color:var(--warning)"><i class="bi bi-exclamation-triangle me-1"></i>Please fix the errors above</span>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Triggering…';
+  statusEl.innerHTML = '';
+  if (window._lightningBurst) _lightningBurst(btn);
+
+  const inputValues = Object.fromEntries(new FormData(e.target).entries());
+  const triggerTime = new Date();
+
+  try {
+    const resp = await fetch('/api/trigger', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(inputValues),
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      statusEl.innerHTML = '<span style="color:var(--success)"><i class="bi bi-check-circle me-1"></i>Workflow dispatched! Tracking run…</span>';
+      startRunTracker(triggerTime, inputValues.runId || '');
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--danger)"><i class="bi bi-x-circle me-1"></i>${data.error}</span>`;
+    }
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color:var(--danger)"><i class="bi bi-x-circle me-1"></i>${err.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-play-fill"></i>RUN';
+  }
+});
+
+// ── Run Tracker ───────────────────────────────────────────────
+let _trackerInterval = null;
+
+function startRunTracker(triggerTime, runNameInput) {
+  if (_trackerInterval) clearInterval(_trackerInterval);
+
+  const statusEl = document.getElementById('triggerStatus');
+  statusEl.innerHTML = `
+    <div class="run-tracker" id="runTracker">
+      <div class="run-tracker-label">
+        <span class="spinner" style="width:.7rem;height:.7rem;border-width:2px"></span>
+        Locating triggered run on GitHub…
+      </div>
+    </div>`;
+
+  let attempts = 0;
+  let nameSaved = false;
+  const MAX = 24; // 24 × 5 s = 2 min
+
+  _trackerInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > MAX) {
+      clearInterval(_trackerInterval);
+      const tracker = document.getElementById('runTracker');
+      if (tracker) tracker.innerHTML = `
+        <div class="run-tracker-label" style="color:var(--text-muted)">
+          <i class="bi bi-clock-history"></i>
+          Could not locate run automatically — check the <a href="#" onclick="document.querySelector('[data-tab=runs]').click();return false;" style="color:var(--accent)">Runs tab</a>.
+        </div>`;
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/runs?page=1&per_page=10');
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      // Allow up to 30s of clock skew between client and GitHub
+      const cutoff = new Date(triggerTime.getTime() - 30000);
+      const run = data.runs.find(r => new Date(r.created_at) >= cutoff);
+      if (!run) return;
+
+      // Save the run name mapping the first time we find the run
+      if (!nameSaved && runNameInput && run.id) {
+        nameSaved = true;
+        fetch(`/api/runs/${run.id}/name`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({run_name: runNameInput}),
+        }).catch(() => {});
+        // Inject the name so the tracker shows it immediately
+        run.run_name = runNameInput;
+      }
+
+      updateRunTracker(run);
+      if (run.status === 'completed') clearInterval(_trackerInterval);
+    } catch (e) { /* keep polling */ }
+  }, 5000);
+}
+
+function updateRunTracker(run) {
+  const tracker = document.getElementById('runTracker');
+  if (!tracker) return;
+
+  const isCompleted = run.status === 'completed';
+  const isActive = run.status === 'in_progress' || run.status === 'queued';
+  tracker.innerHTML = `
+    <div class="run-tracker-row">
+      ${isCompleted ? '' : '<span class="tracker-pulse"></span>'}
+      <div class="run-tracker-info">
+        <a href="${run.html_url}" target="_blank" class="run-tracker-id">
+          <i class="bi bi-github"></i>#${run.id}
+        </a>
+        <span class="run-tracker-sep">·</span>
+        <span class="run-tracker-name">${esc(run.name)}</span>
+        <code class="run-tracker-branch">${esc(run.head_branch)}</code>
+      </div>
+      <div class="run-tracker-status">
+        ${statusBadge(run.status, run.conclusion)}
+        ${isActive ? `<button class="btn btn-danger-outline btn-xs ms-2" id="trackerCancelBtn" onclick="cancelTrackerRun(${run.id})" title="Cancel run"><i class="bi bi-stop-circle"></i> Cancel</button>` : ''}
+        ${isCompleted ? '' : '<span class="run-tracker-hint">auto-refreshing…</span>'}
+      </div>
+    </div>`;
+}
+
+async function cancelTrackerRun(runId) {
+  const btn = document.getElementById('trackerCancelBtn');
+  if (!btn) return;
+  const ok = await showConfirm({ title: 'Cancel workflow run?', body: 'This will send a cancellation request to GitHub Actions. The run may take a moment to stop.', confirmText: 'Yes, cancel it', variant: 'danger', icon: 'bi-stop-circle-fill' });
+  if (!ok) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:.65rem;height:.65rem;border-width:2px"></span>';
+  try {
+    const resp = await fetch(`/api/runs/${runId}/cancel`, {method: 'POST'});
+    const data = await resp.json();
+    if (resp.ok) {
+      if (_trackerInterval) clearInterval(_trackerInterval);
+      btn.closest('.run-tracker-status').innerHTML =
+        statusBadge('completed', 'cancelled');
+    } else {
+      showToast(data.error || 'Failed to cancel run', 'danger');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-stop-circle"></i> Cancel';
+    }
+  } catch (e) {
+    showToast(e.message, 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stop-circle"></i> Cancel';
+  }
+}
+
+// ── Runs ──────────────────────────────────────────────────────
+let _activeFilter = 'all'; // kept for legacy compat — not used by new filter logic
+let _autoRefreshTimer = null;
+let _autoRefreshCountdown = 30;
+
+async function loadRuns() {
+  const body = document.getElementById('runsBody');
+    body.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding:3rem"><span class="spinner me-2"></span>Loading…</td></tr>`;
+
+  try {
+    const resp = await fetch(`/api/runs?page=${currentPage}&per_page=${perPage}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error);
+
+    totalCount = data.total_count;
+    document.getElementById('runsInfo').textContent =
+      `Page ${currentPage} of ${Math.ceil(totalCount / perPage)} — ${totalCount} total runs`;
+    document.getElementById('prevPage').disabled = currentPage <= 1;
+    document.getElementById('nextPage').disabled = currentPage >= Math.ceil(totalCount / perPage);
+
+    if (!data.runs.length) {
+      body.innerHTML = '<tr><td colspan="10" class="text-center text-muted" style="padding:3rem">No runs found</td></tr>';
+      return;
+    }
+
+    body.innerHTML = data.runs.map((run, i) => {
+      const primaryName = run.run_name || '—';
+      const hasRunName  = !!run.run_name;
+      const delay = Math.min(i * 28, 400);
+      return `
+      <tr data-status="${run.status}" data-conclusion="${run.conclusion || ''}" data-branch="${esc(run.head_branch||'')}" data-actor="${esc(run.actor||'')}" style="animation:rowSlideIn 0.22s ease both;animation-delay:${delay}ms">
+        <td><input type="checkbox" class="run-check" data-run-id="${run.id}"></td>
+        <td class="cell-run-name">
+          <div class="rn-primary" title="${esc(primaryName)}">${esc(primaryName)}</div>
+          <div class="rn-meta">
+            <a href="${run.html_url}" target="_blank" class="rn-gh-id">
+              <i class="bi bi-github"></i>#${run.id}
+            </a>
+            <span class="rn-sep">·</span>
+            <span class="rn-workflow">${esc(run.name)}</span>
+          </div>
+        </td>
+        <td>${statusBadge(run.status, run.conclusion)}</td>
+        <td class="cell-code"><code>${esc(run.head_branch)}</code></td>
+        <td class="cell-dim">${esc(run.actor)}</td>
+        <td class="cell-tenants">${renderTenants(run.tenants)}</td>
+        <td class="cell-dim">${formatDate(run.created_at)}</td>
+        <td class="cell-dim">${formatDuration(run.created_at, run.updated_at, run.status)}</td>
+        <td class="cell-groups">${run.groups.length
+          ? `<div class="cell-groups-wrap">${run.groups.map(g => `<span class="badge badge-purple" data-tip="${esc(g.name)}">${esc(g.name)}</span>`).join('')}</div>`
+          : '<span class="cell-empty">—</span>'}</td>
+        <td>
+          <button class="btn btn-outline btn-xs" onclick="openSingleAssign(${run.id})" title="Assign to group">
+            <i class="bi bi-folder-plus"></i>
+          </button>
+          ${(run.status === 'in_progress' || run.status === 'queued') ? `
+          <button class="btn btn-danger-outline btn-xs ms-1" onclick="cancelRun(${run.id}, this)" title="Cancel run">
+            <i class="bi bi-stop-circle"></i>
+          </button>` : ''}
+        </td>
+      </tr>`; }).join('');
+
+    document.getElementById('selectAllRuns').checked = false;
+    updateAssignBtn();
+    document.getElementById('runsInsightBar').style.display = '';
+    _populateRunFilterOptions(data.runs);
+    applyRunFilters();
+
+    // Auto-refresh while runs are in progress
+    const hasRunning = data.runs.some(r => r.status === 'in_progress' || r.status === 'queued');
+    if (hasRunning) startAutoRefresh(); else stopAutoRefresh();
+
+  } catch (err) {
+    body.innerHTML = `<tr><td colspan="10" class="text-center" style="padding:3rem;color:var(--danger)">${err.message}</td></tr>`;
+  }
+}
+
+function changePage(delta) {
+  currentPage = Math.max(1, currentPage + delta);
+  loadRuns();
+}
+
+// ── Cancel Run ────────────────────────────────────────────────
+async function cancelRun(runId, btn) {
+  const ok = await showConfirm({ title: 'Cancel workflow run?', body: 'This will send a cancellation request to GitHub Actions. The run may take a moment to stop.', confirmText: 'Yes, cancel it', variant: 'danger', icon: 'bi-stop-circle-fill' });
+  if (!ok) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="width:.65rem;height:.65rem;border-width:2px"></span>';
+  try {
+    const resp = await fetch(`/api/runs/${runId}/cancel`, {method: 'POST'});
+    const data = await resp.json();
+    if (resp.ok) {
+      // Update the row immediately — mark it as cancelling
+      const row = btn.closest('tr');
+      if (row) {
+        row.dataset.status = 'completed';
+        row.dataset.conclusion = 'cancelled';
+        const statusTd = row.querySelector('td:nth-child(3)');
+        if (statusTd) statusTd.innerHTML = statusBadge('completed', 'cancelled');
+        btn.remove();
+      }
+    } else {
+      showToast(data.error || 'Failed to cancel run', 'danger');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-stop-circle"></i>';
+    }
+  } catch (e) {
+    showToast(e.message, 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-stop-circle"></i>';
+  }
+}
+
+// ── Filter ────────────────────────────────────────────────────
+// ── Run filters ───────────────────────────────────────────────
+function _populateRunFilterOptions(runs) {
+  const branches = [...new Set(runs.map(r => r.head_branch).filter(Boolean))].sort();
+  const actors   = [...new Set(runs.map(r => r.actor).filter(Boolean))].sort();
+
+  const brSel = document.getElementById('rfBranch');
+  const acSel = document.getElementById('rfActor');
+  const curBr = brSel.value;
+  const curAc = acSel.value;
+
+  brSel.innerHTML = '<option value="">All Branches</option>' +
+    branches.map(b => `<option value="${esc(b)}"${b === curBr ? ' selected' : ''}>${esc(b)}</option>`).join('');
+  acSel.innerHTML = '<option value="">All Actors</option>' +
+    actors.map(a => `<option value="${esc(a)}"${a === curAc ? ' selected' : ''}>${esc(a)}</option>`).join('');
+}
+
+function applyRunFilters() {
+  const status = document.getElementById('rfStatus').value;
+  const branch = document.getElementById('rfBranch').value;
+  const actor  = document.getElementById('rfActor').value;
+
+  // highlight active selects
+  ['rfStatus','rfBranch','rfActor'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.toggle('rf-active', !!el.value);
+  });
+
+  const anyActive = !!(status || branch || actor);
+  document.getElementById('rfClear').style.display = anyActive ? '' : 'none';
+
+  let visible = 0;
+  document.querySelectorAll('#runsBody tr[data-status]').forEach(row => {
+    const s = row.dataset.status;
+    const c = row.dataset.conclusion || '';
+    const b = row.dataset.branch  || '';
+    const a = row.dataset.actor   || '';
+
+    let show = true;
+    if (status) {
+      if (status === 'in_progress') show = show && (s === 'in_progress' || s === 'queued');
+      else if (status === 'cancelled') show = show && (c === 'cancelled');
+      else show = show && (c === status);
+    }
+    if (branch) show = show && (b === branch);
+    if (actor)  show = show && (a === actor);
+
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  const total = document.querySelectorAll('#runsBody tr[data-status]').length;
+  const countEl = document.getElementById('rfCount');
+  countEl.textContent = anyActive ? `${visible} of ${total} runs` : '';
+}
+
+function clearRunFilters() {
+  document.getElementById('rfStatus').value = '';
+  document.getElementById('rfBranch').value = '';
+  document.getElementById('rfActor').value  = '';
+  applyRunFilters();
+}
+
+function setFilter(filter) { /* legacy stub — replaced by applyRunFilters */ }
+
+// ── Auto-refresh ──────────────────────────────────────────────
+function startAutoRefresh() {
+  if (_autoRefreshTimer) return;
+  _autoRefreshCountdown = 30;
+  _tickAutoRefresh();
+}
+
+function _tickAutoRefresh() {
+  _updateAutoRefreshUI();
+  _autoRefreshTimer = setTimeout(() => {
+    _autoRefreshCountdown--;
+    if (_autoRefreshCountdown <= 0) {
+      _autoRefreshTimer = null;
+      loadRuns();
+    } else {
+      _tickAutoRefresh();
+    }
+  }, 1000);
+}
+
+function stopAutoRefresh() {
+  if (_autoRefreshTimer) { clearTimeout(_autoRefreshTimer); _autoRefreshTimer = null; }
+  const el = document.getElementById('autoRefreshIndicator');
+  if (el) el.style.display = 'none';
+}
+
+function _updateAutoRefreshUI() {
+  const el = document.getElementById('autoRefreshIndicator');
+  if (!el) return;
+  el.style.display = '';
+  el.innerHTML = `<i class="bi bi-arrow-clockwise"></i> Refreshing in ${_autoRefreshCountdown}s`;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function statusBadge(status, conclusion) {
+  if (status === 'completed') {
+    if (conclusion === 'success')   return '<span class="badge badge-success"><i class="bi bi-check-circle"></i>Success</span>';
+    if (conclusion === 'failure')   return '<span class="badge badge-danger"><i class="bi bi-x-circle"></i>Failed</span>';
+    if (conclusion === 'cancelled') return '<span class="badge badge-secondary">Cancelled</span>';
+    return `<span class="badge badge-warning">${conclusion || 'completed'}</span>`;
+  }
+  if (status === 'in_progress') return '<span class="badge badge-running"><span class="spinner" style="border-color:rgba(227,179,65,.3);border-top-color:#e3b341;width:.6rem;height:.6rem"></span>Running</span>';
+  if (status === 'queued')      return '<span class="badge badge-info">Queued</span>';
+  return `<span class="badge badge-secondary">${status}</span>`;
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDuration(createdAt, updatedAt, status) {
+  const start = new Date(createdAt);
+  const end   = (status === 'completed') ? new Date(updatedAt) : new Date();
+  const ms    = end - start;
+  if (ms < 0 || isNaN(ms)) return '—';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0)  return `${h}h ${m}m`;
+  if (m > 0)  return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function esc(s) {
+  const el = document.createElement('span');
+  el.textContent = s || '';
+  return el.innerHTML;
+}
+
+function renderTenants(tenants) {
+  if (!tenants) return '<span class="cell-empty">—</span>';
+  if (tenants === '*') return '<span class="tenant-all"><i class="bi bi-asterisk"></i> All</span>';
+  const ids = tenants.split(',').map(t => t.trim()).filter(Boolean);
+  const chips = ids.map(id => `<span class="tenant-chip">${esc(id)}</span>`).join('');
+  return `<div class="tenant-chips-wrap">${chips}</div>`;
+}
+
+// Repo slug for GitHub links in groups
+const GITHUB_REPO_JS = '{{ github_repo }}';
+
+// Status badge for group run rows (uses pre-fetched conclusion/status)
+function groupRunBadge(r) {
+  const s = r.status, c = r.conclusion;
+  if (!s) return '<span class="badge badge-secondary">—</span>';
+  if (s === 'completed') {
+    if (c === 'success')  return '<span class="badge badge-success"><i class="bi bi-check-circle-fill"></i>Passed</span>';
+    if (c === 'failure')  return '<span class="badge badge-danger"><i class="bi bi-x-circle-fill"></i>Failed</span>';
+    if (c === 'cancelled') return '<span class="badge badge-secondary"><i class="bi bi-slash-circle"></i>Cancelled</span>';
+    return `<span class="badge badge-warning">${c || 'done'}</span>`;
+  }
+  if (s === 'in_progress') return '<span class="badge badge-running"><span class="spinner" style="border-color:rgba(227,179,65,.3);border-top-color:#e3b341;width:.6rem;height:.6rem"></span>Running</span>';
+  if (s === 'queued')      return '<span class="badge badge-info">Queued</span>';
+  return `<span class="badge badge-secondary">${s}</span>`;
+}
+
+// Format pre-computed duration in seconds to "Xm Ys"
+function fmtDuration(secs) {
+  if (secs == null || secs < 0) return '—';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// Select all
+document.getElementById('selectAllRuns').addEventListener('change', (e) => {
+  document.querySelectorAll('.run-check').forEach(cb => cb.checked = e.target.checked);
+  updateAssignBtn();
+});
+document.getElementById('runsBody').addEventListener('change', updateAssignBtn);
+
+function updateAssignBtn() {
+  document.getElementById('assignSelectedBtn').disabled = !document.querySelectorAll('.run-check:checked').length;
+}
+
+function getSelectedRunIds() {
+  return Array.from(document.querySelectorAll('.run-check:checked')).map(cb => parseInt(cb.dataset.runId));
+}
+
+// ── Assign modal ──────────────────────────────────────────────
+function openAssignModal() {
+  const ids = getSelectedRunIds();
+  if (!ids.length) return;
+  document.getElementById('assignRunCount').textContent = ids.length;
+  refreshGroupSelects();
+  document.getElementById('assignModal').classList.add('show');
+}
+
+function openSingleAssign(runId) {
+  document.querySelectorAll('.run-check').forEach(cb => cb.checked = parseInt(cb.dataset.runId) === runId);
+  updateAssignBtn();
+  openAssignModal();
+}
+
+function closeAssignModal() {
+  document.getElementById('assignModal').classList.remove('show');
+}
+
+document.getElementById('assignModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeAssignModal();
+});
+
+document.getElementById('assignCreateGroupBtn').addEventListener('click', async () => {
+  const name = document.getElementById('assignNewGroupName').value.trim();
+  if (!name) return;
+  const resp = await fetch('/api/groups', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    document.getElementById('assignNewGroupName').value = '';
+    await refreshGroupSelects();
+    document.getElementById('assignGroupSelect').value = data.id;
+  }
+});
+
+document.getElementById('assignConfirmBtn').addEventListener('click', async () => {
+  const groupId = document.getElementById('assignGroupSelect').value;
+  if (!groupId) { alert('Select a group first'); return; }
+  const ids = getSelectedRunIds();
+  const resp = await fetch(`/api/groups/${groupId}/runs/batch`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({run_ids: ids}),
+  });
+  if (resp.ok) { closeAssignModal(); loadRuns(); }
+});
+
+// ── Groups ────────────────────────────────────────────────────
+async function loadGroups() {
+  const container = document.getElementById('groupsList');
+
+  // Remember which groups are currently open before re-rendering
+  const openIds = new Set(
+    Array.from(document.querySelectorAll('.group-collapse.open'))
+         .map(el => el.id.replace('gcollapse-', ''))
+  );
+
+  container.innerHTML = '<div class="text-center text-muted" style="padding:2.5rem"><span class="spinner me-2"></span>Loading…</div>';
+
+  try {
+    const resp = await fetch('/api/groups');
+    const data = await resp.json();
+    allGroups = data.groups;
+    await refreshGroupSelects();
+
+    if (!allGroups.length) {
+      container.innerHTML = '<div class="text-center text-muted py-5">No groups yet. Create one to get started.</div>';
+      return;
+    }
+
+    container.innerHTML = allGroups.map(g => {
+      const total = g.runs.length;
+      const statsHtml = '';
+
+      return `
+      <div class="group-card" id="group-${g.id}">
+        <div class="group-card-header" onclick="toggleGroup(${g.id})">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-chevron-right group-chevron" id="chevron-${g.id}"></i>
+            <i class="bi bi-collection-fill" style="color:var(--accent);font-size:0.85rem"></i>
+            <span class="fw-semibold">${esc(g.name)}</span>
+            <span class="badge badge-secondary">${total} run${total !== 1 ? 's' : ''}</span>
+            ${statsHtml}
+          </div>
+          <div class="d-flex align-items-center gap-2" onclick="event.stopPropagation()">
+            <span class="small text-muted">Created ${formatDate(g.created_at)}</span>
+            <button class="btn btn-danger-outline btn-xs" onclick="deleteGroup(${g.id}, '${esc(g.name)}')" title="Delete group">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="group-collapse" id="gcollapse-${g.id}">
+          ${total > 0 ? `
+          <table class="group-runs-table">
+            <colgroup>
+              <col style="width:36px">
+              <col>
+              <col style="width:118px">
+              <col style="width:150px">
+              <col style="width:88px">
+              <col style="width:115px">
+              <col style="width:48px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Run Name</th>
+                <th>Status</th>
+                <th>Branch</th>
+                <th>Duration</th>
+                <th>Triggered</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${g.runs.map(r => {
+                const badge   = groupRunBadge(r);
+                const name    = r.run_name || '—';
+                const branch  = r.head_branch || '—';
+                const dur     = r.duration != null ? fmtDuration(r.duration) : '—';
+                const date    = r.created_at ? formatDate(r.created_at) : (r.added_at ? formatDate(r.added_at) : '—');
+                const ghUrl   = `https://github.com/${GITHUB_REPO_JS}/actions/runs/${r.run_id}`;
+                return `
+                <tr id="grun-${g.id}-${r.run_id}">
+                  <td class="grun-icon-cell">
+                    <a href="${ghUrl}" target="_blank" class="grun-ext-link" title="Open in GitHub">
+                      <i class="bi bi-box-arrow-up-right"></i>
+                    </a>
+                  </td>
+                  <td class="grun-name-cell">
+                    <span class="grun-name">${esc(name)}</span>
+                    <span class="grun-id">#${r.run_id}</span>
+                  </td>
+                  <td>${badge}</td>
+                  <td class="grun-branch">
+                    ${branch !== '—' ? `<i class="bi bi-diagram-2" style="color:var(--accent);font-size:0.7rem;margin-right:0.3rem"></i>` : ''}
+                    <span class="grun-branch-text">${esc(branch)}</span>
+                  </td>
+                  <td class="grun-meta">${dur}</td>
+                  <td class="grun-meta">${date}</td>
+                  <td>
+                    <button class="btn btn-danger-outline btn-xs" onclick="removeRun(${g.id}, ${r.run_id})" title="Remove from group">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          ` : '<div class="group-empty">No runs in this group yet.</div>'}
+        </div>
+      </div>`;
+    }).join('');
+
+    // Restore previously open groups
+    openIds.forEach(id => {
+      const body    = document.getElementById('gcollapse-' + id);
+      const chevron = document.getElementById('chevron-' + id);
+      if (body) { body.classList.add('open'); }
+      if (chevron) { chevron.style.transform = 'rotate(90deg)'; }
+    });
+
+  } catch (err) {
+    container.innerHTML = `<div class="text-center" style="padding:2.5rem;color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+function toggleGroup(id) {
+  const body = document.getElementById('gcollapse-' + id);
+  const chevron = document.getElementById('chevron-' + id);
+  const open = body.classList.toggle('open');
+  chevron.style.transform = open ? 'rotate(90deg)' : '';
+}
+
+async function refreshGroupSelects() {
+  try {
+    const resp = await fetch('/api/groups');
+    allGroups = (await resp.json()).groups;
+  } catch (e) { /* use cached */ }
+  const opts = allGroups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  document.getElementById('assignGroupSelect').innerHTML = '<option value="">— Choose a group —</option>' + opts;
+  document.getElementById('addRunGroupSelect').innerHTML = '<option value="">— Select group —</option>' + opts;
+}
+
+document.getElementById('createGroupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nameInput = document.getElementById('newGroupName');
+  const statusEl = document.getElementById('createGroupStatus');
+  const name = nameInput.value.trim();
+  if (!name) return;
+  const resp = await fetch('/api/groups', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name}),
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    nameInput.value = '';
+    statusEl.innerHTML = '<span style="color:var(--success)"><i class="bi bi-check-circle me-1"></i>Group created</span>';
+    loadGroups();
+  } else {
+    statusEl.innerHTML = `<span style="color:var(--danger)"><i class="bi bi-x-circle me-1"></i>${data.error}</span>`;
+  }
+  setTimeout(() => statusEl.innerHTML = '', 3000);
+});
+
+// ── Add Run: mode switch ───────────────────────────────────────
+let _arMode = 'id';
+function switchAddRunMode(mode, btn) {
+  _arMode = mode;
+  document.querySelectorAll('.ar-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  document.getElementById('ar-panel-id').style.display   = mode === 'id'   ? '' : 'none';
+  document.getElementById('ar-panel-name').style.display = mode === 'name' ? '' : 'none';
+  // clear state
+  document.getElementById('addRunId').value = '';
+  document.getElementById('addRunNameInput').value = '';
+  document.getElementById('addRunNameId').value = '';
+  document.getElementById('arSelectedHint').style.display = 'none';
+  document.getElementById('arDropdown').style.display = 'none';
+}
+
+// ── Add Run: name autocomplete ────────────────────────────────
+let _arDebounce = null;
+document.getElementById('addRunNameInput').addEventListener('input', function() {
+  clearTimeout(_arDebounce);
+  document.getElementById('addRunNameId').value = '';
+  document.getElementById('arSelectedHint').style.display = 'none';
+  const q = this.value.trim();
+  if (!q) { document.getElementById('arDropdown').style.display = 'none'; return; }
+  _arDebounce = setTimeout(() => _fetchRunSuggestions(q), 250);
+});
+
+document.getElementById('addRunNameInput').addEventListener('blur', () => {
+  setTimeout(() => { document.getElementById('arDropdown').style.display = 'none'; }, 180);
+});
+
+async function _fetchRunSuggestions(q) {
+  const drop = document.getElementById('arDropdown');
+  drop.innerHTML = '<div class="ar-drop-item ar-drop-loading"><span class="spinner" style="width:.7rem;height:.7rem;border-width:2px"></span> Searching…</div>';
+  drop.style.display = '';
+  const resp = await fetch(`/api/runs/search?q=${encodeURIComponent(q)}`);
+  const results = await resp.json();
+  if (!results.length) {
+    drop.innerHTML = '<div class="ar-drop-item ar-drop-empty"><i class="bi bi-search me-1"></i>No matching runs found</div>';
+    return;
+  }
+  drop.innerHTML = results.map(r => `
+    <div class="ar-drop-item" onmousedown="selectArRun(${r.run_id}, '${esc(r.run_name)}')">
+      <span class="ar-drop-name">${esc(r.run_name)}</span>
+      <span class="ar-drop-id">#${r.run_id}</span>
+    </div>`).join('');
+}
+
+function selectArRun(runId, runName) {
+  document.getElementById('addRunNameId').value  = runId;
+  document.getElementById('addRunNameInput').value = runName;
+  document.getElementById('arDropdown').style.display = 'none';
+  document.getElementById('arSelectedText').textContent = `Run #${runId} selected`;
+  document.getElementById('arSelectedHint').style.display = '';
+}
+
+// ── Add Run: form submit ───────────────────────────────────────
+document.getElementById('addRunForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const groupId  = document.getElementById('addRunGroupSelect').value;
+  const statusEl = document.getElementById('addRunStatus');
+  if (!groupId) { statusEl.innerHTML = '<span style="color:var(--danger)">Please select a group</span>'; return; }
+
+  let runId;
+  if (_arMode === 'id') {
+    runId = parseInt(document.getElementById('addRunId').value);
+    if (!runId) { statusEl.innerHTML = '<span style="color:var(--danger)">Please enter a Run ID</span>'; return; }
+  } else {
+    runId = parseInt(document.getElementById('addRunNameId').value);
+    if (!runId) { statusEl.innerHTML = '<span style="color:var(--danger)">Please select a run from the suggestions</span>'; return; }
+  }
+
+  const resp = await fetch(`/api/groups/${groupId}/runs`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({run_id: runId}),
+  });
+  const data = await resp.json();
+  if (resp.ok) {
+    document.getElementById('addRunId').value = '';
+    document.getElementById('addRunNameInput').value = '';
+    document.getElementById('addRunNameId').value = '';
+    document.getElementById('arSelectedHint').style.display = 'none';
+    statusEl.innerHTML = '<span style="color:var(--success)"><i class="bi bi-check-circle me-1"></i>Run added</span>';
+    loadGroups();
+  } else {
+    statusEl.innerHTML = `<span style="color:var(--danger)"><i class="bi bi-x-circle me-1"></i>${data.error}</span>`;
+  }
+  setTimeout(() => statusEl.innerHTML = '', 3000);
+});
+
+async function deleteGroup(id, name) {
+  const ok = await showConfirm({ title: `Delete group "${name}"?`, body: 'This will permanently remove the group and all its run associations. This cannot be undone.', confirmText: 'Delete group', variant: 'danger', icon: 'bi-trash3-fill' });
+  if (!ok) return;
+  await fetch(`/api/groups/${id}`, {method: 'DELETE'});
+  loadGroups();
+}
+
+async function removeRun(groupId, runId) {
+  const resp = await fetch(`/api/groups/${groupId}/runs/${runId}`, {method: 'DELETE'});
+  if (!resp.ok) return;
+
+  // Remove the row immediately without collapsing the group
+  const collapse = document.getElementById('gcollapse-' + groupId);
+  if (collapse) {
+    const btn = collapse.querySelector(`button[onclick="removeRun(${groupId}, ${runId})"]`);
+    if (btn) btn.closest('tr').remove();
+
+    // Update the run count badge
+    const remaining = collapse.querySelectorAll('tbody tr').length;
+    const badge = document.querySelector(`#group-${groupId} .badge-secondary`);
+    if (badge) badge.textContent = `${remaining} run${remaining !== 1 ? 's' : ''}`;
+
+    // If no runs left, show the empty state message
+    if (remaining === 0) {
+      collapse.innerHTML = '<div style="padding:0.75rem 1rem;font-size:0.8rem;color:var(--text-muted)">No runs in this group yet.</div>';
+    }
+  }
+
+  // Refresh selects in background
+  refreshGroupSelects();
+}
+
+// ── Toast Notifications ───────────────────────────────────────
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const icons = { success: 'bi-check-circle-fill', danger: 'bi-x-circle-fill', info: 'bi-info-circle-fill' };
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<i class="bi ${icons[type] || icons.info}"></i><span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  }, 3000);
+}
+
+// ── Lightning System ──────────────────────────────────────────
+(function initLightning() {
+  const canvas = document.getElementById('lightningCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const ACCENT = '#4493f8';
+  let W, H;
+
+  function resize() {
+    W = canvas.width  = canvas.parentElement.offsetWidth;
+    H = canvas.height = canvas.parentElement.offsetHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Midpoint-displacement bolt path generator
+  function buildPath(x1, y1, x2, y2, disp, segs) {
+    if (disp < 1.8) { segs.push([x1, y1, x2, y2]); return; }
+    const mx = (x1 + x2) / 2 + (Math.random() - .5) * disp;
+    const my = (y1 + y2) / 2 + (Math.random() - .5) * disp;
+    buildPath(x1, y1, mx, my, disp / 2, segs);
+    buildPath(mx, my, x2, y2, disp / 2, segs);
+    // random branch
+    if (Math.random() < .42 && disp > 14) {
+      const bx = mx + (Math.random() - .5) * disp * 1.8;
+      const by = my + Math.random() * disp * 1.6;
+      buildPath(mx, my, bx, by, disp / 2.5, segs);
+    }
+  }
+
+  function makeBolt(x1, y1, x2, y2) {
+    const segs = [];
+    buildPath(x1, y1, x2, y2, Math.hypot(x2 - x1, y2 - y1) * .38, segs);
+    return segs;
+  }
+
+  let bolts = [], sparks = [], flash = 0;
+
+  function addBolt(x1, y1, x2, y2, life, width, ambient) {
+    bolts.push({ segs: makeBolt(x1, y1, x2, y2), age: 0, life, width, ambient });
+  }
+
+  function addSparks(cx, cy, n) {
+    for (let i = 0; i < n; i++) {
+      const a  = Math.random() * Math.PI * 2;
+      const sp = 70 + Math.random() * 230;
+      sparks.push({
+        x: cx, y: cy,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        age: 0, life: .3 + Math.random() * .45,
+        r: .8 + Math.random() * 2.5,
+        white: Math.random() < .45,
+      });
+    }
+  }
+
+  // Public: burst from a DOM element (called on RUN click)
+  window._lightningBurst = function(el) {
+    const er = el.getBoundingClientRect();
+    const cr = canvas.getBoundingClientRect();
+    const cx = er.left - cr.left + er.width  / 2;
+    const cy = er.top  - cr.top  + er.height / 2;
+    const N = 8;
+    for (let i = 0; i < N; i++) {
+      const a   = (i / N) * Math.PI * 2 + (Math.random() - .5) * .5;
+      const len = 100 + Math.random() * 200;
+      addBolt(cx, cy, cx + Math.cos(a) * len, cy + Math.sin(a) * len, .48, 2.4, false);
+    }
+    addSparks(cx, cy, 32);
+    flash = .45;
+  };
+
+  // ── Cursor sparkle trail ──────────────────────────────────────
+  let _trailActive = false;
+  let _lastTrail = 0;
+
+  document.getElementById('tab-trigger').addEventListener('mousemove', (e) => {
+    if (!document.getElementById('tab-trigger').classList.contains('active')) return;
+    const now = performance.now();
+    if (now - _lastTrail < 40) return; // max ~25 sparks/s
+    _lastTrail = now;
+    const cr = canvas.getBoundingClientRect();
+    const mx = e.clientX - cr.left;
+    const my = e.clientY - cr.top;
+    // spawn 2-3 tiny trail sparks
+    const n = 2 + (Math.random() < .4 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const a   = Math.random() * Math.PI * 2;
+      const spd = 15 + Math.random() * 35;
+      sparks.push({
+        x: mx + (Math.random() - .5) * 6,
+        y: my + (Math.random() - .5) * 6,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd - 18,
+        age: 0, life: .25 + Math.random() * .25,
+        r: .6 + Math.random() * 1.4,
+        white: Math.random() < .5,
+      });
+    }
+  });
+
+  // Ambient: frequent bolts raining from the top
+  function ambient() {
+    if (document.getElementById('tab-trigger').classList.contains('active')) {
+      // Always fire 1-2 main bolts
+      const count = 1 + (Math.random() < .55 ? 1 : 0);
+      for (let i = 0; i < count; i++) {
+        const x1 = W * (.05 + Math.random() * .9);
+        addBolt(x1, -4, x1 + (Math.random() - .5) * 160, H * (.2 + Math.random() * .65), .28, 1.1, true);
+      }
+      // 60% chance of a bonus thin bolt
+      if (Math.random() < .6) {
+        const x2 = W * (.05 + Math.random() * .9);
+        addBolt(x2, 0, x2 + (Math.random() - .5) * 100, H * (.1 + Math.random() * .45), .2, .65, true);
+      }
+    }
+    setTimeout(ambient, 900 + Math.random() * 1800);
+  }
+  setTimeout(ambient, 400 + Math.random() * 800);
+
+  // Draw a single bolt
+  function drawBolt(b) {
+    const t  = 1 - b.age / b.life;
+    const a  = b.ambient ? t * t * .72 : t * t;
+    ctx.save();
+    // wide glow
+    ctx.lineWidth   = b.width * 4.5;
+    ctx.strokeStyle = `rgba(68,147,248,${a * .3})`;
+    ctx.shadowColor = ACCENT;
+    ctx.shadowBlur  = 22;
+    ctx.beginPath();
+    b.segs.forEach(([x1,y1,x2,y2]) => { ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); });
+    ctx.stroke();
+    // bright core
+    ctx.lineWidth   = b.width;
+    ctx.strokeStyle = `rgba(255,255,255,${a * .95})`;
+    ctx.shadowBlur  = 10;
+    ctx.beginPath();
+    b.segs.forEach(([x1,y1,x2,y2]) => { ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw a single spark
+  function drawSpark(s) {
+    const t = 1 - s.age / s.life;
+    ctx.save();
+    ctx.globalAlpha  = t;
+    ctx.fillStyle    = s.white ? '#fff' : ACCENT;
+    ctx.shadowColor  = s.white ? '#e0eeff' : ACCENT;
+    ctx.shadowBlur   = 9;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r * t, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Animation loop
+  let last = performance.now();
+  function tick(now) {
+    requestAnimationFrame(tick);
+    const dt = Math.min((now - last) / 1000, .1);
+    last = now;
+
+    bolts  = bolts.filter(b => (b.age += dt) < b.life);
+    sparks = sparks.filter(s => {
+      s.age += dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      s.vy  += 260 * dt;
+      return s.age < s.life;
+    });
+    if (flash > 0) flash = Math.max(0, flash - dt * 3.5);
+
+    const alive = bolts.length || sparks.length || flash > 0;
+    ctx.clearRect(0, 0, W, H);
+    if (!alive) return;
+
+    if (flash > 0) {
+      ctx.fillStyle = `rgba(68,147,248,${flash * .12})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    bolts.forEach(drawBolt);
+    sparks.forEach(drawSpark);
+  }
+  requestAnimationFrame(tick);
+})();
+
+// ── Custom confirm modal ──────────────────────────────────────
+// ── Instant tooltip for [data-tip] elements ───────────────────
+(function() {
+  const box = document.getElementById('tipBox');
+  const PAD = 12; // px gap from cursor
+
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('[data-tip]');
+    if (!el) return;
+    const tip = el.getAttribute('data-tip');
+    if (!tip) return;
+    box.textContent = tip;
+    box.classList.add('tip-visible');
+    _positionTip(e);
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!box.classList.contains('tip-visible')) return;
+    _positionTip(e);
+  });
+
+  document.addEventListener('mouseout', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el) box.classList.remove('tip-visible');
+  });
+
+  function _positionTip(e) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const bw = box.offsetWidth, bh = box.offsetHeight;
+    let x = e.clientX + PAD;
+    let y = e.clientY + PAD;
+    if (x + bw > vw - 8) x = e.clientX - bw - PAD;
+    if (y + bh > vh - 8) y = e.clientY - bh - PAD;
+    box.style.left = x + 'px';
+    box.style.top  = y + 'px';
+  }
+})();
+
+const _cmOverlay  = document.getElementById('confirmModal');
+const _cmIconWrap = document.getElementById('cmIconWrap');
+const _cmIcon     = document.getElementById('cmIcon');
+const _cmTitle    = document.getElementById('cmTitle');
+const _cmBody     = document.getElementById('cmBody');
+const _cmCancel   = document.getElementById('cmCancel');
+const _cmConfirm  = document.getElementById('cmConfirm');
+let   _cmResolve  = null;
+
+function showConfirm({ title, body, confirmText = 'Confirm', variant = 'danger', icon = 'bi-exclamation-triangle-fill' }) {
+  return new Promise(resolve => {
+    _cmResolve = resolve;
+    _cmTitle.textContent   = title;
+    _cmBody.textContent    = body;
+    _cmConfirm.textContent = confirmText;
+    _cmIcon.className      = `bi ${icon}`;
+    _cmIconWrap.className  = `cm-icon-wrap ${variant}`;
+    _cmConfirm.className   = `btn cm-confirm ${variant}`;
+    _cmOverlay.classList.add('open');
+    _cmConfirm.focus();
+  });
+}
+function _cmClose(result) {
+  _cmOverlay.classList.remove('open');
+  if (_cmResolve) { _cmResolve(result); _cmResolve = null; }
+}
+_cmCancel.addEventListener('click',  () => _cmClose(false));
+_cmConfirm.addEventListener('click', () => _cmClose(true));
+_cmOverlay.addEventListener('click', e => { if (e.target === _cmOverlay) _cmClose(false); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _cmOverlay.classList.contains('open')) _cmClose(false);
+});
+
+// ── Restore tab from URL hash (must run after all let/const state is initialized) ──
+(function () {
+  const hash = location.hash.replace('#', '');
+  const valid = ['trigger', 'runs', 'groups'];
+  activateTab(valid.includes(hash) ? hash : 'trigger', false);
+}());
+</script>
+</body>
+</html>
