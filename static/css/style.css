@@ -1618,7 +1618,7 @@ td.cell-run-name { overflow: visible; white-space: normal; padding-top: 0.55rem;
 .group-runs-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed; /* locks columns to colgroup widths */
+  table-layout: fixed;
 }
 .group-runs-table thead th {
   font-size: 0.67rem;
@@ -1626,35 +1626,42 @@ td.cell-run-name { overflow: visible; white-space: normal; padding-top: 0.55rem;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
-  padding: 0.4rem 0.65rem;
+  padding: 0.45rem 0.65rem;
   background: rgba(255,255,255,0.02);
   border-bottom: 1px solid var(--border-muted);
   white-space: nowrap;
   overflow: hidden;
   text-align: left;
+  vertical-align: middle;
+}
+/* align first header cell with the group-card-header's left padding */
+.group-runs-table thead th:first-child {
+  padding-left: 0.85rem;
 }
 .group-runs-table tbody tr {
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
   transition: background 0.12s;
 }
 .group-runs-table tbody tr:last-child { border-bottom: none; }
-.group-runs-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+.group-runs-table tbody tr:hover { background: rgba(255,255,255,0.03); }
 .group-runs-table tbody td {
-  padding: 0.5rem 0.65rem;
+  padding: 0.55rem 0.65rem;
   font-size: 0.82rem;
   vertical-align: middle;
   color: var(--text-secondary);
   white-space: nowrap;
-  overflow: visible; /* each cell controls its own overflow */
+  overflow: visible;
 }
 
 /* only the name cell should truncate */
-.grun-name-cell {
-  overflow: hidden;
-}
+.grun-name-cell { overflow: hidden; }
 
-/* icon/link cell */
-.grun-icon-cell { text-align: center; padding-left: 0.5rem !important; padding-right: 0 !important; }
+/* icon/link cell — left-aligned with card header */
+.grun-icon-cell {
+  text-align: center;
+  padding-left: 0.85rem !important;
+  padding-right: 0.25rem !important;
+}
 .grun-ext-link {
   color: var(--text-muted);
   font-size: 0.72rem;
@@ -1664,7 +1671,7 @@ td.cell-run-name { overflow: visible; white-space: normal; padding-top: 0.55rem;
 }
 .group-runs-table tbody tr:hover .grun-ext-link { opacity: 1; color: var(--accent); }
 
-/* run name cell — overflow handled by table-layout: fixed */
+/* run name cell */
 .grun-name {
   display: block;
   color: var(--text-primary);
@@ -1679,13 +1686,15 @@ td.cell-run-name { overflow: visible; white-space: normal; padding-top: 0.55rem;
   font-size: 0.7rem;
   color: var(--text-muted);
   font-family: ui-monospace, 'SFMono-Regular', monospace;
-  margin-top: 0.05rem;
+  margin-top: 0.1rem;
 }
 
-/* branch cell */
-.grun-branch {
-  display: flex !important;
+/* branch cell — flex on inner wrapper, not on the td itself */
+.grun-branch { overflow: hidden; }
+.grun-branch-inner {
+  display: flex;
   align-items: center;
+  gap: 0.3rem;
   overflow: hidden;
 }
 .grun-branch-text {
@@ -1702,6 +1711,12 @@ td.cell-run-name { overflow: visible; white-space: normal; padding-top: 0.55rem;
   color: var(--text-muted) !important;
   font-size: 0.78rem !important;
   white-space: nowrap;
+}
+
+/* delete button cell */
+.grun-action-cell {
+  text-align: center;
+  padding-right: 0.85rem !important;
 }
 
 /* ── Modal ───────────────────────────────────────────────────── */

@@ -1685,12 +1685,14 @@ async function loadGroups() {
                   </td>
                   <td>${badge}</td>
                   <td class="grun-branch">
-                    ${branch !== '—' ? `<i class="bi bi-diagram-2" style="color:var(--accent);font-size:0.7rem;margin-right:0.3rem"></i>` : ''}
-                    <span class="grun-branch-text">${esc(branch)}</span>
+                    <div class="grun-branch-inner">
+                      ${branch !== '—' ? `<i class="bi bi-diagram-2" style="color:var(--accent);font-size:0.7rem;flex-shrink:0"></i>` : ''}
+                      <span class="grun-branch-text">${esc(branch)}</span>
+                    </div>
                   </td>
                   <td class="grun-meta">${dur}</td>
                   <td class="grun-meta">${date}</td>
-                  <td>
+                  <td class="grun-action-cell">
                     <button class="btn btn-danger-outline btn-xs" onclick="removeRun(${g.id}, ${r.run_id})" title="Remove from group">
                       <i class="bi bi-x-lg"></i>
                     </button>
