@@ -808,6 +808,7 @@ def batch_add_runs_to_group(group_id):
     return jsonify({"added": added, "skipped": skipped}), 201
 
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, port=5555)
