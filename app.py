@@ -822,7 +822,19 @@ def batch_add_runs_to_group(group_id):
     return jsonify({"added": added, "skipped": skipped}), 201
 
 
-init_db()
+def _init_db_with_retry(retries=5, delay=3):
+    """Try to initialise the DB, retrying on transient connection errors."""
+    for attempt in range(1, retries + 1):
+        try:
+            init_db()
+            return
+        except Exception as exc:
+            print(f"[gandalf] init_db attempt {attempt}/{retries} failed: {exc}")
+            if attempt < retries:
+                time.sleep(delay)
+    print("[gandalf] WARNING: could not initialise DB after all retries — continuing anyway")
+
+_init_db_with_retry()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5555)
