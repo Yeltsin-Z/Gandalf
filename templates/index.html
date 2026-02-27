@@ -456,12 +456,36 @@
 
       <!-- Right panel -->
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
           <div class="runs-title"><i class="bi bi-collection" style="color:var(--accent)"></i>Groups</div>
           <button class="btn btn-outline btn-sm" onclick="loadGroups()">
             <i class="bi bi-arrow-clockwise"></i>Refresh
           </button>
         </div>
+
+        <!-- Groups filter bar -->
+        <div class="gf-bar" id="groupsFilterBar" style="display:none">
+          <div class="gf-search-wrap">
+            <i class="bi bi-search gf-search-icon"></i>
+            <input type="text" id="gfSearch" class="gf-search-input" placeholder="Search groups…" oninput="applyGroupFilters()">
+            <button class="gf-clear-btn" id="gfClearSearch" onclick="clearGroupSearch()" title="Clear search" style="display:none">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+          <div class="gf-sort-wrap">
+            <i class="bi bi-sort-down gf-sort-icon"></i>
+            <select class="gf-sort-select" id="gfSort" onchange="applyGroupFilters()">
+              <option value="date_desc">Newest first</option>
+              <option value="date_asc">Oldest first</option>
+              <option value="name_asc">Name A–Z</option>
+              <option value="name_desc">Name Z–A</option>
+              <option value="runs_desc">Most runs</option>
+              <option value="runs_asc">Fewest runs</option>
+            </select>
+          </div>
+          <span class="gf-count" id="gfCount"></span>
+        </div>
+
         <div id="groupsList"></div>
       </div>
 
@@ -1601,12 +1625,6 @@ document.getElementById('assignConfirmBtn').addEventListener('click', async () =
 async function loadGroups() {
   const container = document.getElementById('groupsList');
 
-  // Remember which groups are currently open before re-rendering
-  const openIds = new Set(
-    Array.from(document.querySelectorAll('.group-collapse.open'))
-         .map(el => el.id.replace('gcollapse-', ''))
-  );
-
   container.innerHTML = '<div class="text-center text-muted" style="padding:2.5rem"><span class="spinner me-2"></span>Loading…</div>';
 
   try {
@@ -1615,12 +1633,73 @@ async function loadGroups() {
     allGroups = data.groups;
     await refreshGroupSelects();
 
-    if (!allGroups.length) {
-      container.innerHTML = '<div class="text-center text-muted py-5">No groups yet. Create one to get started.</div>';
-      return;
-    }
+    // Show filter bar only when there are groups
+    document.getElementById('groupsFilterBar').style.display = allGroups.length ? 'flex' : 'none';
 
-    container.innerHTML = allGroups.map(g => {
+    applyGroupFilters();
+
+  } catch (err) {
+    container.innerHTML = `<div class="text-center" style="padding:2.5rem;color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+function applyGroupFilters() {
+  const query  = (document.getElementById('gfSearch')?.value || '').trim().toLowerCase();
+  const sort   = document.getElementById('gfSort')?.value || 'date_desc';
+  const clearBtn = document.getElementById('gfClearSearch');
+  if (clearBtn) clearBtn.style.display = query ? 'flex' : 'none';
+
+  let filtered = allGroups.filter(g =>
+    !query || g.name.toLowerCase().includes(query)
+  );
+
+  filtered = filtered.slice().sort((a, b) => {
+    if (sort === 'date_desc') return new Date(b.created_at) - new Date(a.created_at);
+    if (sort === 'date_asc')  return new Date(a.created_at) - new Date(b.created_at);
+    if (sort === 'name_asc')  return a.name.localeCompare(b.name);
+    if (sort === 'name_desc') return b.name.localeCompare(a.name);
+    if (sort === 'runs_desc') return b.runs.length - a.runs.length;
+    if (sort === 'runs_asc')  return a.runs.length - b.runs.length;
+    return 0;
+  });
+
+  const countEl = document.getElementById('gfCount');
+  if (countEl) {
+    countEl.textContent = query
+      ? `${filtered.length} of ${allGroups.length}`
+      : `${allGroups.length} group${allGroups.length !== 1 ? 's' : ''}`;
+    countEl.style.color = (query && filtered.length === 0) ? 'var(--danger)' : '';
+  }
+
+  renderGroupsList(filtered);
+}
+
+function clearGroupSearch() {
+  document.getElementById('gfSearch').value = '';
+  applyGroupFilters();
+  document.getElementById('gfSearch').focus();
+}
+
+function renderGroupsList(groups) {
+  const container = document.getElementById('groupsList');
+
+  // Remember which groups are currently open before re-rendering
+  const openIds = new Set(
+    Array.from(document.querySelectorAll('.group-collapse.open'))
+         .map(el => el.id.replace('gcollapse-', ''))
+  );
+
+  if (!allGroups.length) {
+    container.innerHTML = '<div class="text-center text-muted py-5">No groups yet. Create one to get started.</div>';
+    return;
+  }
+
+  if (!groups.length) {
+    container.innerHTML = '<div class="text-center text-muted py-5" style="font-size:0.85rem">No groups match your search.</div>';
+    return;
+  }
+
+    container.innerHTML = groups.map(g => {
       const total = g.runs.length;
       const statsHtml = '';
 
@@ -1706,17 +1785,13 @@ async function loadGroups() {
       </div>`;
     }).join('');
 
-    // Restore previously open groups
-    openIds.forEach(id => {
-      const body    = document.getElementById('gcollapse-' + id);
-      const chevron = document.getElementById('chevron-' + id);
-      if (body) { body.classList.add('open'); }
-      if (chevron) { chevron.style.transform = 'rotate(90deg)'; }
-    });
-
-  } catch (err) {
-    container.innerHTML = `<div class="text-center" style="padding:2.5rem;color:var(--danger)">${err.message}</div>`;
-  }
+  // Restore previously open groups
+  openIds.forEach(id => {
+    const body    = document.getElementById('gcollapse-' + id);
+    const chevron = document.getElementById('chevron-' + id);
+    if (body) { body.classList.add('open'); }
+    if (chevron) { chevron.style.transform = 'rotate(90deg)'; }
+  });
 }
 
 function toggleGroup(id) {
