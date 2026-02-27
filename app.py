@@ -1,5 +1,6 @@
 import os
 import json as _json
+import time
 import requests
 from datetime import datetime, timezone
 from functools import wraps
@@ -21,6 +22,10 @@ APP_USERNAME = os.environ.get("APP_USERNAME", "")
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gandalf.db")
+
+# In-memory branch cache — refreshed at most once every 5 minutes
+_branch_cache: dict = {"branches": [], "fetched_at": 0}
+_BRANCH_CACHE_TTL = 300  # seconds
 
 # ---------------------------------------------------------------------------
 # Unified DB adapter — switches between PostgreSQL and SQLite automatically.
@@ -473,6 +478,10 @@ def list_runs():
 @app.route("/api/branches")
 @login_required
 def list_branches():
+    now = time.time()
+    if _branch_cache["branches"] and now - _branch_cache["fetched_at"] < _BRANCH_CACHE_TTL:
+        return jsonify({"branches": _branch_cache["branches"], "cached": True})
+
     branches = []
     page = 1
     while len(branches) < 500:
@@ -483,6 +492,8 @@ def list_branches():
             timeout=15,
         )
         if resp.status_code != 200:
+            if branches:
+                return jsonify({"branches": branches})
             return jsonify({"error": f"GitHub returned {resp.status_code}"}), resp.status_code
         data = resp.json()
         if not data:
@@ -491,6 +502,9 @@ def list_branches():
         if len(data) < 100:
             break
         page += 1
+
+    _branch_cache["branches"] = branches
+    _branch_cache["fetched_at"] = time.time()
     return jsonify({"branches": branches})
 
 
