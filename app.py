@@ -147,7 +147,7 @@ WORKFLOW_INPUTS = [
     },
     {
         "name": "maxEcsTasks", "label": "No. of ECS Workers for Parallel Run", "default": "1", "required": True, "type": "number",
-        "hint": "Each worker runs tests independently in parallel. More workers = faster completion, but higher AWS cost. Recommended: 5 for standard runs, 10–20 for large tenant sets.",
+        "hint": "Each worker runs tests independently in parallel. More workers = faster completion. Recommended: 5 for standard runs, 10–20 for large tenant sets.",
         "min": "1", "max": "20",
         "pattern": r"^(1[0-9]?|[2-9]|20)$",
         "pattern_error": "Must be a whole number between 1 and 20",
