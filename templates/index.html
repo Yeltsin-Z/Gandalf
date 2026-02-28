@@ -2001,6 +2001,85 @@ function showToast(message, type = 'info') {
     return segs;
   }
 
+  // ── Thunder synthesizer (Web Audio API, no external files) ──────
+  const _thunder = (() => {
+    let _ac = null;
+    let _unlocked = false;
+
+    // Unlock AudioContext on first user gesture
+    function _unlock() {
+      _unlocked = true;
+      document.removeEventListener('click',     _unlock, true);
+      document.removeEventListener('keydown',   _unlock, true);
+      document.removeEventListener('touchstart', _unlock, true);
+    }
+    document.addEventListener('click',      _unlock, true);
+    document.addEventListener('keydown',    _unlock, true);
+    document.addEventListener('touchstart', _unlock, true);
+
+    function _ctx() {
+      if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+      if (_ac.state === 'suspended') _ac.resume();
+      return _ac;
+    }
+
+    // Low-rumble thunder burst — brown noise through a low-pass filter
+    function _rumble(vol, dur, delay) {
+      try {
+        const ac  = _ctx();
+        const now = ac.currentTime + delay;
+        const sr  = ac.sampleRate;
+        const buf = ac.createBuffer(1, Math.ceil(sr * dur), sr);
+        const d   = buf.getChannelData(0);
+        let last  = 0;
+        for (let i = 0; i < d.length; i++) {
+          const w = Math.random() * 2 - 1;
+          last = (last + 0.02 * w) / 1.02;   // brown noise
+          d[i] = last * 3.5;
+        }
+        const src = ac.createBufferSource();
+        src.buffer = buf;
+        const lp  = ac.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = 1.4;
+        const g   = ac.createGain();
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(vol, now + 0.06);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        src.connect(lp); lp.connect(g); g.connect(ac.destination);
+        src.start(now); src.stop(now + dur);
+      } catch (_) {}
+    }
+
+    // Sharp crack — white noise with fast exponential decay
+    function _crack(vol) {
+      try {
+        const ac  = _ctx();
+        const now = ac.currentTime;
+        const sr  = ac.sampleRate;
+        const len = Math.ceil(sr * 0.18);
+        const buf = ac.createBuffer(1, len, sr);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.07));
+        const src = ac.createBufferSource();
+        src.buffer = buf;
+        const bp  = ac.createBiquadFilter();
+        bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.6;
+        const g   = ac.createGain();
+        g.gain.setValueAtTime(vol, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        src.connect(bp); bp.connect(g); g.connect(ac.destination);
+        src.start(now);
+      } catch (_) {}
+    }
+
+    return {
+      // Close strike (Run button burst)
+      burst()   { _crack(0.55); _rumble(0.6, 2.0, 0.07); },
+      // Distant ambient rumble — only if user has already interacted
+      ambient() { if (_unlocked && Math.random() < 0.4) _rumble(0.12, 1.4, Math.random() * 0.4); },
+    };
+  })();
+
   let bolts = [], sparks = [], flash = 0;
 
   function addBolt(x1, y1, x2, y2, life, width, ambient) {
@@ -2035,6 +2114,7 @@ function showToast(message, type = 'info') {
     }
     addSparks(cx, cy, 32);
     flash = .45;
+    _thunder.burst();
   };
 
   // ── Cursor sparkle trail ──────────────────────────────────────
@@ -2080,6 +2160,7 @@ function showToast(message, type = 'info') {
         const x2 = W * (.05 + Math.random() * .9);
         addBolt(x2, 0, x2 + (Math.random() - .5) * 100, H * (.1 + Math.random() * .45), .2, .65, true);
       }
+      _thunder.ambient();
     }
     setTimeout(ambient, 900 + Math.random() * 1800);
   }
