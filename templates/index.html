@@ -2001,137 +2001,6 @@ function showToast(message, type = 'info') {
     return segs;
   }
 
-  // ── Thunder synthesizer (Web Audio API, no external files) ──────
-  const _thunder = (() => {
-    let _ac = null;
-    let _unlocked = false;
-
-    function _unlock() {
-      _unlocked = true;
-      document.removeEventListener('click',      _unlock, true);
-      document.removeEventListener('keydown',    _unlock, true);
-      document.removeEventListener('touchstart', _unlock, true);
-    }
-    document.addEventListener('click',      _unlock, true);
-    document.addEventListener('keydown',    _unlock, true);
-    document.addEventListener('touchstart', _unlock, true);
-
-    function _ctx() {
-      if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
-      if (_ac.state === 'suspended') _ac.resume();
-      return _ac;
-    }
-
-    // Brown noise buffer — deep low-frequency energy for the rumble body
-    function _brownBuf(ac, dur) {
-      const sr  = ac.sampleRate;
-      const buf = ac.createBuffer(1, Math.ceil(sr * dur), sr);
-      const d   = buf.getChannelData(0);
-      let last  = 0;
-      for (let i = 0; i < d.length; i++) {
-        const w = Math.random() * 2 - 1;
-        last    = (last + 0.02 * w) / 1.02;
-        d[i]    = last * 3.5;
-      }
-      return buf;
-    }
-
-    // Very brief electrical snap — coincides exactly with the flash
-    function _snap(ac, vol, pan) {
-      const now = ac.currentTime;
-      const sr  = ac.sampleRate;
-      const len = Math.ceil(sr * 0.006);
-      const buf = ac.createBuffer(1, len, sr);
-      const d   = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-      const src = ac.createBufferSource();
-      src.buffer = buf;
-      const hp  = ac.createBiquadFilter();
-      hp.type   = 'highpass'; hp.frequency.value = 4000;
-      const g   = ac.createGain();
-      g.gain.setValueAtTime(vol, now);
-      const p   = ac.createStereoPanner(); p.pan.value = pan;
-      src.connect(hp); hp.connect(g); g.connect(p); p.connect(ac.destination);
-      src.start(now);
-    }
-
-    // Sharp explosive crack — arrives after lightning by `delay` seconds
-    function _crack(ac, vol, delay, pan) {
-      const now = ac.currentTime + delay;
-      const sr  = ac.sampleRate;
-      const len = Math.ceil(sr * 0.28);
-      const buf = ac.createBuffer(1, len, sr);
-      const d   = buf.getChannelData(0);
-      // Layered: impact transient + tail
-      for (let i = 0; i < len; i++) {
-        const impact = Math.exp(-i / (len * 0.04));
-        const tail   = Math.exp(-i / (len * 0.35)) * 0.25;
-        d[i] = (Math.random() * 2 - 1) * (impact + tail);
-      }
-      const src = ac.createBufferSource();
-      src.buffer = buf;
-      const bp  = ac.createBiquadFilter();
-      bp.type   = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.5;
-      const g   = ac.createGain();
-      g.gain.setValueAtTime(vol, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-      const p   = ac.createStereoPanner(); p.pan.value = pan;
-      src.connect(bp); bp.connect(g); g.connect(p); p.connect(ac.destination);
-      src.start(now);
-    }
-
-    // Rolling deep rumble — arrives with crack, lasts several seconds
-    function _rumble(ac, vol, delay, dur, pan) {
-      const now = ac.currentTime + delay;
-      const src = ac.createBufferSource();
-      src.buffer = _brownBuf(ac, dur);
-      // Two cascaded low-pass filters for maximum bass depth
-      const lp1 = ac.createBiquadFilter();
-      lp1.type  = 'lowpass'; lp1.frequency.value = 220; lp1.Q.value = 1.8;
-      const lp2 = ac.createBiquadFilter();
-      lp2.type  = 'lowpass'; lp2.frequency.value = 100; lp2.Q.value = 0.7;
-      const g   = ac.createGain();
-      // Envelope: punch in fast → sustained body → long natural fade
-      g.gain.setValueAtTime(0,         now);
-      g.gain.linearRampToValueAtTime(vol,         now + 0.05);
-      g.gain.setValueAtTime(vol,                  now + 0.25);
-      g.gain.exponentialRampToValueAtTime(vol * 0.5, now + dur * 0.4);
-      g.gain.exponentialRampToValueAtTime(0.001,  now + dur);
-      const p   = ac.createStereoPanner(); p.pan.value = pan;
-      src.connect(lp1); lp1.connect(lp2); lp2.connect(g); g.connect(p); p.connect(ac.destination);
-      src.start(now); src.stop(now + dur);
-    }
-
-    return {
-      // Close strike — triggered by Run button click
-      burst() {
-        try {
-          const ac  = _ctx();
-          const pan = (Math.random() - 0.5) * 0.4;
-          _snap(ac, 0.9, pan);               // electrical snap at the flash
-          _crack(ac, 0.75, 0.03, pan);       // primary crack
-          _crack(ac, 0.45, 0.11, pan * 0.6); // echo crack layer
-          _rumble(ac, 0.75, 0.04, 3.8, pan); // long deep roll
-        } catch (_) {}
-      },
-
-      // Ambient strikes — thunder arrives AFTER the bolt (sound travels slower than light)
-      ambient() {
-        if (!_unlocked || Math.random() > 0.45) return;
-        try {
-          const ac   = _ctx();
-          const dist = 0.5 + Math.random() * 2.0; // 0.5–2.5 s after flash
-          const pan  = (Math.random() - 0.5) * 0.9;
-          const far  = dist > 1.3;
-          if (!far) _crack(ac, 0.22, dist, pan);           // close enough to hear crack
-          const vol = far ? 0.07 + Math.random() * 0.06    // distant: soft
-                          : 0.18 + Math.random() * 0.12;   // closer: louder
-          _rumble(ac, vol, dist, 2.2 + Math.random() * 2.0, pan);
-        } catch (_) {}
-      },
-    };
-  })();
-
   let bolts = [], sparks = [], flash = 0;
 
   function addBolt(x1, y1, x2, y2, life, width, ambient) {
@@ -2166,7 +2035,6 @@ function showToast(message, type = 'info') {
     }
     addSparks(cx, cy, 32);
     flash = .45;
-    _thunder.burst();
   };
 
   // ── Cursor sparkle trail ──────────────────────────────────────
@@ -2212,7 +2080,6 @@ function showToast(message, type = 'info') {
         const x2 = W * (.05 + Math.random() * .9);
         addBolt(x2, 0, x2 + (Math.random() - .5) * 100, H * (.1 + Math.random() * .45), .2, .65, true);
       }
-      _thunder.ambient();
     }
     setTimeout(ambient, 900 + Math.random() * 1800);
   }
