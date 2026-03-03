@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gandalf — Sign In</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:       #4493f8;
+      --accent-glow:  rgba(68, 147, 248, 0.22);
+      --danger:       #f85149;
+      --text-primary: #e6edf3;
+      --text-sec:     #8b949e;
+      --text-muted:   #484f58;
+      --border:       rgba(255,255,255,0.09);
+      --border-focus: rgba(68,147,248,0.6);
+      --surface:      rgba(10, 14, 22, 0.78);
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--text-primary);
+      background: #05080f;
+    }
+
+    /* Scan-line texture — zero JS cost */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 2px,
+        rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 3px
+      );
+    }
+
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .page {
+      position: relative;
+      z-index: 10;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+    }
+
+    /* ── Outer wrapper (brand + card centered together) ── */
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    /* ── Login card ──────────────────────────────────── */
+    .login-card {
+      width: 100%;
+      background: var(--surface);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px;
+      padding: 2rem 2rem 1.75rem;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.04) inset,
+        0 8px 48px rgba(0,0,0,.7),
+        0 0 80px rgba(68,147,248,.08),
+        0 0 120px rgba(139,92,246,.06);
+      position: relative;
+      animation: fadeSlideUp 0.7s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 15%; right: 15%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(68,147,248,.6), rgba(139,92,246,.4), transparent);
+    }
+
+    /* brand block above card */
+    .card-brand {
+      text-align: center;
+      animation: fadeSlideDown 0.65s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @keyframes fadeSlideDown {
+      from { opacity:0; transform:translateY(-14px); }
+      to   { opacity:1; transform:none; }
+    }
+    .site-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 0.8rem;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(68,147,248,.22), rgba(139,92,246,.12));
+      border: 1px solid rgba(68,147,248,.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      color: var(--accent);
+      box-shadow: 0 0 28px rgba(68,147,248,.28), inset 0 1px 0 rgba(255,255,255,.07);
+      position: relative;
+    }
+    .site-icon::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 19px;
+      border: 1px solid rgba(68,147,248,.13);
+      animation: iconPulse 3s ease-in-out infinite;
+    }
+    @keyframes iconPulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.3; transform:scale(1.06); }
+    }
+    .site-name {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #e6edf3 20%, #4493f8 70%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .site-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.28rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .card-head { margin-bottom: 1.4rem; }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.2rem;
+    }
+    .card-desc { font-size: 0.8rem; color: var(--text-sec); }
+
+    /* ── Error ───────────────────────────────────────── */
+    .error-box {
+      background: rgba(248,81,73,.08);
+      border: 1px solid rgba(248,81,73,.28);
+      border-radius: 10px;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.82rem;
+      color: var(--danger);
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: shakeIn 0.35s ease;
+    }
+    @keyframes shakeIn {
+      0%   { transform:translateX(-6px); opacity:0; }
+      40%  { transform:translateX(4px); }
+      70%  { transform:translateX(-2px); }
+      100% { transform:translateX(0); opacity:1; }
+    }
+
+    /* ── Fields ──────────────────────────────────────── */
+    .field { margin-bottom: 1rem; }
+    .field-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.38rem;
+    }
+    .input-wrap { position: relative; }
+    .input-icon {
+      position: absolute;
+      left: 0.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+    .field-input {
+      width: 100%;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+      padding: 0.62rem 2.5rem 0.62rem 2.35rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      font-family: inherit;
+    }
+    .field-input::placeholder { color: var(--text-muted); }
+    .field-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .input-wrap:focus-within .input-icon { color: var(--accent); }
+
+    /* password toggle */
+    .pw-toggle {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      padding: 0.2rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1;
+      transition: color 0.18s;
+      display: flex;
+      align-items: center;
+    }
+    .pw-toggle:hover { color: var(--accent); }
+
+    /* ── Submit ──────────────────────────────────────── */
+    .btn-login {
+      width: 100%;
+      margin-top: 0.6rem;
+      padding: 0.72rem;
+      background: linear-gradient(135deg, #3b82f6, #4493f8 55%, #818cf8);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter .2s, transform .15s, box-shadow .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      letter-spacing: 0.02em;
+      font-family: inherit;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 22px rgba(68,147,248,.35);
+    }
+    .btn-login::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,rgba(255,255,255,.14) 0%,transparent 60%);
+      pointer-events: none;
+    }
+    .btn-login:hover  { filter:brightness(1.12); transform:translateY(-1px); box-shadow:0 8px 28px rgba(68,147,248,.45); }
+    .btn-login:active { transform:scale(0.98); filter:brightness(0.97); }
+
+    /* ── Divider / footer ────────────────────────────── */
+    .divider { height:1px; background:rgba(255,255,255,.07); margin:1.4rem 0 1rem; }
+    .card-footer {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+    }
+    .card-footer i { font-size: 0.62rem; }
+
+    .page-footer {
+      margin-top: 1.1rem;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: center;
+      animation: fadeSlideUp 0.65s cubic-bezier(0.16,1,0.3,1) 0.25s both;
+    }
+    .page-footer span { color: var(--text-sec); }
+
+    @keyframes fadeSlideUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:none; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="page">
+  <div class="login-wrap">
+    <div class="card-brand">
+      <div class="site-icon"><i class="bi bi-shield-shaded"></i></div>
+      <div class="site-name">Gandalf</div>
+      <div class="site-sub">Regression Test Runner</div>
+    </div>
+
+  <div class="login-card">
+    <div class="card-head">
+      <div class="card-title">Welcome back</div>
+      <div class="card-desc">Sign in to your team account to continue</div>
+    </div>
+
+    {% if error %}
+    <div class="error-box">
+      <i class="bi bi-shield-exclamation"></i>{{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <div class="field">
+        <label class="field-label" for="username">Email address</label>
+        <div class="input-wrap">
+          <input type="email" id="username" name="username" class="field-input"
+                 placeholder="you@drivetrain.ai" autocomplete="username" required autofocus>
+          <i class="bi bi-envelope input-icon"></i>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="password">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="password" name="password" class="field-input"
+                 placeholder="••••••••••••" autocomplete="current-password" required>
+          <i class="bi bi-lock input-icon"></i>
+          <button type="button" class="pw-toggle" id="pwToggle" tabindex="-1" aria-label="Toggle password visibility">
+            <i class="bi bi-eye" id="pwToggleIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login">
+        <i class="bi bi-box-arrow-in-right"></i>Sign in
+      </button>
+    </form>
+
+    <div class="divider"></div>
+    <div class="card-footer">
+      <i class="bi bi-shield-lock-fill"></i>
+      DrivetrainAI &middot; SDET Team &middot; Internal Use Only
+    </div>
+  </div><!-- login-card -->
+  </div><!-- login-wrap -->
+
+</div><!-- page -->
+
+<script>
+(function () {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx    = canvas.getContext('2d');
+  let W, H;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ── Runic alphabet (Elder Futhark + extras) ─────── */
+  const RUNES = 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗᛚᛜᛞᛟ'.split('');
+
+  /* ── Stars ───────────────────────────────────────── */
+  const stars = Array.from({ length: 160 }, () => ({
+    x: Math.random(), y: Math.random() * 0.9,
+    r: Math.random() * 1.1 + 0.2,
+    phase: Math.random() * Math.PI * 2,
+    spd:   Math.random() * 0.5 + 0.25,
+  }));
+
+  /* ── Magic rings ─────────────────────────────────── */
+  // Each ring: rotates with runes sitting on the circumference
+  const RINGS = [
+    { r: 320, speed:  0.0025, runeN: 28, rgb: [68,147,248],  alpha: 0.13, width: 1.0, dash: [3,10] },
+    { r: 230, speed: -0.004,  runeN: 20, rgb: [139,92,246],  alpha: 0.12, width: 0.8, dash: [2, 8] },
+    { r: 155, speed:  0.007,  runeN: 14, rgb: [96,239,255],  alpha: 0.10, width: 0.7, dash: [2, 6] },
+    { r:  90, speed: -0.012,  runeN:  8, rgb: [167,139,250], alpha: 0.14, width: 0.7, dash: [1, 5] },
+  ];
+
+  /* ── Orbital particles (magic dust) ─────────────── */
+  const ORBITALS = Array.from({ length: 90 }, () => {
+    const ring = RINGS[Math.floor(Math.random() * RINGS.length)];
+    return {
+      angle:  Math.random() * Math.PI * 2,
+      radius: ring.r * (0.8 + Math.random() * 0.5),
+      speed:  (Math.random() * 0.008 + 0.003) * (Math.random() > 0.5 ? 1 : -1),
+      size:   Math.random() * 1.8 + 0.4,
+      alpha:  Math.random() * 0.5 + 0.1,
+      rgb:    ring.rgb,
+      phase:  Math.random() * Math.PI * 2,
+    };
+  });
+
+  /* ── Floating rune wisps ─────────────────────────── */
+  const WISPS = Array.from({ length: 22 }, () => ({
+    x:     Math.random(),
+    y:     Math.random(),
+    rune:  RUNES[Math.floor(Math.random() * RUNES.length)],
+    size:  Math.random() * 9 + 7,
+    vx:    (Math.random() - 0.5) * 0.0004,
+    vy:    -(Math.random() * 0.0004 + 0.0001),
+    alpha: 0,
+    targetAlpha: Math.random() * 0.18 + 0.04,
+    fadeIn: Math.random() < 0.5,
+    rgb:   Math.random() > 0.5 ? [68,147,248] : [139,92,246],
+  }));
+
+  /* ── Pause on input focus ────────────────────────── */
+  let paused = false;
+  document.querySelectorAll('.field-input').forEach(el => {
+    el.addEventListener('focus', () => { paused = true; });
+    el.addEventListener('blur',  () => { paused = false; scheduleDraw(); });
+  });
+
+  /* ── Frame-rate cap (~24 fps) ────────────────────── */
+  const INTERVAL = 1000 / 24;
+  let lastFrame = 0;
+  function scheduleDraw() { requestAnimationFrame(loop); }
+  function loop(ts) {
+    if (paused) return;
+    if (ts - lastFrame >= INTERVAL) { lastFrame = ts; draw(); }
+    scheduleDraw();
+  }
+
+  /* ── Draw ────────────────────────────────────────── */
+  let t = 0;
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    /* deep space background */
+    const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.75);
+    bg.addColorStop(0,   '#0a0e1a');
+    bg.addColorStop(0.4, '#07091400');
+    bg.addColorStop(1,   '#050810');
+    ctx.fillStyle = '#050810';
+    ctx.fillRect(0, 0, W, H);
+
+    /* nebula glow behind center */
+    const neb1 = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, W * 0.45);
+    neb1.addColorStop(0,   'rgba(68,147,248,0.07)');
+    neb1.addColorStop(0.5, 'rgba(139,92,246,0.04)');
+    neb1.addColorStop(1,   'transparent');
+    ctx.fillStyle = neb1;
+    ctx.fillRect(0, 0, W, H);
+
+    const neb2 = ctx.createRadialGradient(W*0.3, H*0.4, 0, W*0.3, H*0.4, W*0.35);
+    neb2.addColorStop(0,   'rgba(96,239,255,0.04)');
+    neb2.addColorStop(1,   'transparent');
+    ctx.fillStyle = neb2;
+    ctx.fillRect(0, 0, W, H);
+
+    /* stars */
+    stars.forEach(s => {
+      const tw = 0.5 + 0.5 * Math.sin(t * s.spd + s.phase);
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r * (0.6 + 0.4 * tw), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,220,255,${0.55 * tw})`;
+      ctx.fill();
+    });
+
+    const cx = W / 2, cy = H / 2;
+
+    /* magic rings */
+    RINGS.forEach(ring => {
+      const angle = ring.speed * t * 60;
+      const [r,g,b] = ring.rgb;
+      const pulse = 1 + 0.04 * Math.sin(t * 1.2 + ring.r);
+
+      // ring line
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, ring.r * pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${ring.alpha})`;
+      ctx.lineWidth   = ring.width;
+      ctx.setLineDash(ring.dash);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // runes on ring
+      ctx.font = `${11}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < ring.runeN; i++) {
+        const a  = angle + (i / ring.runeN) * Math.PI * 2;
+        const rx = cx + Math.cos(a) * ring.r * pulse;
+        const ry = cy + Math.sin(a) * ring.r * pulse;
+        ctx.save();
+        ctx.translate(rx, ry);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},${ring.alpha * 1.8})`;
+        ctx.fillText(RUNES[(i + Math.floor(t * 0.05)) % RUNES.length], 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+    });
+
+    /* orbital particles */
+    ORBITALS.forEach(p => {
+      p.angle += p.speed;
+      const px = cx + Math.cos(p.angle) * p.radius;
+      const py = cy + Math.sin(p.angle) * p.radius;
+      const glow = 0.6 + 0.4 * Math.sin(t * 1.5 + p.phase);
+      const [r,g,b] = p.rgb;
+
+      // glow halo
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, p.size * 3);
+      grad.addColorStop(0,   `rgba(${r},${g},${b},${p.alpha * 0.5 * glow})`);
+      grad.addColorStop(1,   'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(px, py, p.size * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // core dot
+      ctx.beginPath();
+      ctx.arc(px, py, p.size * glow, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},${p.alpha * glow})`;
+      ctx.fill();
+    });
+
+    /* central orb glow */
+    const orbPulse = 1 + 0.12 * Math.sin(t * 0.9);
+    const orb = ctx.createRadialGradient(cx, cy, 0, cx, cy, 55 * orbPulse);
+    orb.addColorStop(0,   'rgba(68,147,248,0.18)');
+    orb.addColorStop(0.4, 'rgba(139,92,246,0.08)');
+    orb.addColorStop(1,   'transparent');
+    ctx.fillStyle = orb;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 55 * orbPulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    /* floating rune wisps */
+    WISPS.forEach(w => {
+      // fade in/out cycle
+      if (w.fadeIn) {
+        w.alpha = Math.min(w.alpha + 0.003, w.targetAlpha);
+        if (w.alpha >= w.targetAlpha) w.fadeIn = false;
+      } else {
+        w.alpha = Math.max(w.alpha - 0.002, 0);
+        if (w.alpha <= 0) {
+          w.x = Math.random(); w.y = Math.random();
+          w.rune = RUNES[Math.floor(Math.random() * RUNES.length)];
+          w.fadeIn = true;
+        }
+      }
+      w.x += w.vx; w.y += w.vy;
+      if (w.y < -0.05) { w.y = 1.0; w.x = Math.random(); }
+
+      const [r,g,b] = w.rgb;
+      ctx.save();
+      ctx.font = `${w.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = `rgba(${r},${g},${b},0.6)`;
+      ctx.shadowBlur  = 8;
+      ctx.fillStyle   = `rgba(${r},${g},${b},${w.alpha})`;
+      ctx.fillText(w.rune, w.x * W, w.y * H);
+      ctx.restore();
+    });
+
+    t += 0.018;
+  }
+
+  scheduleDraw();
+
+  /* ── Password toggle ─────────────────────────────── */
+  const pwField  = document.getElementById('password');
+  const pwToggle = document.getElementById('pwToggle');
+  const pwIcon   = document.getElementById('pwToggleIcon');
+  pwToggle.addEventListener('click', () => {
+    const show = pwField.type === 'password';
+    pwField.type    = show ? 'text' : 'password';
+    pwIcon.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+    pwField.focus();
+  });
+})();
+</script>
+</body>
+</html>
